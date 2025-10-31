@@ -1,68 +1,98 @@
-import Link from "next/link"
-import { notFound } from "next/navigation"
+"use client"
+
+import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
 import { AppLayout } from "@/components/app-layout"
 import {
-  BarChart3,
   TrendingUp,
-  Users,
   Package,
   Activity,
   CheckCircle2,
   XCircle,
 } from "lucide-react"
+import { appsApi, statsApi } from "@/lib/api"
+import type { App, Stats } from "@/lib/api/types"
 
-// 模拟应用数据
-const getAppData = (appId: string) => {
-  const apps = {
-    "1": { id: "1", name: "购物 App", icon: "🛒" },
-    "2": { id: "2", name: "社交 App", icon: "💬" },
-    "3": { id: "3", name: "新闻 App", icon: "📰" },
+export default function StatsPage() {
+  const params = useParams()
+  const appId = params.appId as string
+  const [app, setApp] = useState<App | null>(null)
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  const fetchApp = async () => {
+    try {
+      const response = await appsApi.getApp(appId)
+      if (response.success && response.data) {
+        setApp(response.data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch app:", err)
+    }
   }
-  return apps[appId as keyof typeof apps]
-}
 
-// 模拟统计数据
-const getStats = (appId: string) => {
-  return {
-    versionDistribution: [
-      { version: "1.2.0", count: 850, percentage: 68 },
-      { version: "1.1.9", count: 280, percentage: 22.4 },
-      { version: "1.1.8", count: 120, percentage: 9.6 },
-    ],
-    updateSuccessRate: {
-      success: 1240,
-      failed: 10,
-      rate: 99.2,
-    },
-    updateTimeline: [
-      { date: "2024-01-15", count: 450 },
-      { date: "2024-01-14", count: 320 },
-      { date: "2024-01-13", count: 280 },
-      { date: "2024-01-12", count: 200 },
-      { date: "2024-01-11", count: 180 },
-    ],
-    failureReasons: [
-      { reason: "网络超时", count: 5 },
-      { reason: "存储空间不足", count: 3 },
-      { reason: "版本不兼容", count: 2 },
-    ],
+  const fetchStats = async () => {
+    setLoading(true)
+    setError("")
+
+    try {
+      const response = await statsApi.getStats(appId)
+      if (response.success && response.data) {
+        setStats(response.data)
+      } else {
+        setError(response.error?.message || "获取统计数据失败")
+      }
+    } catch (err) {
+      setError("网络错误，请稍后重试")
+    } finally {
+      setLoading(false)
+    }
   }
-}
 
-interface StatsPageProps {
-  params: Promise<{ appId: string }>
-}
-
-export default async function StatsPage({ params }: StatsPageProps) {
-  const { appId } = await params
-  const app = getAppData(appId)
-  const stats = getStats(appId)
+  useEffect(() => {
+    if (appId) {
+      fetchApp()
+      fetchStats()
+    }
+  }, [appId])
 
   if (!app) {
-    notFound()
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </AppLayout>
+    )
   }
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  if (error || !stats) {
+    return (
+      <AppLayout>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive">
+              {error || "获取统计数据失败"}
+            </p>
+          </CardContent>
+        </Card>
+      </AppLayout>
+    )
+  }
+
+  const maxCount = Math.max(...stats.updateTimeline.map((i) => i.count), 1)
 
   return (
     <AppLayout>
@@ -85,18 +115,15 @@ export default async function StatsPage({ params }: StatsPageProps) {
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                更新成功率
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">更新成功率</CardTitle>
               <TrendingUp className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats.updateSuccessRate.rate}%
+                {stats.summary.updateSuccessRate.toFixed(1)}%
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                成功 {stats.updateSuccessRate.success} / 失败{" "}
-                {stats.updateSuccessRate.failed}
+                成功 {stats.summary.successCount} / 失败 {stats.summary.failureCount}
               </p>
             </CardContent>
           </Card>
@@ -107,7 +134,7 @@ export default async function StatsPage({ params }: StatsPageProps) {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats.versionDistribution.length}
+                {stats.summary.activeVersions}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 当前运行的版本数
@@ -121,10 +148,10 @@ export default async function StatsPage({ params }: StatsPageProps) {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {stats.updateTimeline.reduce((sum, item) => sum + item.count, 0)}
+                {stats.summary.totalUpdates}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                最近 5 天更新次数
+                总更新次数
               </p>
             </CardContent>
           </Card>
@@ -151,7 +178,7 @@ export default async function StatsPage({ params }: StatsPageProps) {
                           {item.count} 用户
                         </span>
                         <span className="text-sm font-medium">
-                          {item.percentage}%
+                          {item.percentage.toFixed(1)}%
                         </span>
                       </div>
                     </div>
@@ -181,12 +208,12 @@ export default async function StatsPage({ params }: StatsPageProps) {
                     <div>
                       <p className="font-medium">成功</p>
                       <p className="text-sm text-muted-foreground">
-                        {stats.updateSuccessRate.success} 次
+                        {stats.summary.successCount} 次
                       </p>
                     </div>
                   </div>
                   <span className="text-2xl font-bold text-green-600">
-                    {stats.updateSuccessRate.rate}%
+                    {stats.summary.updateSuccessRate.toFixed(1)}%
                   </span>
                 </div>
                 <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -195,15 +222,13 @@ export default async function StatsPage({ params }: StatsPageProps) {
                     <div>
                       <p className="font-medium">失败</p>
                       <p className="text-sm text-muted-foreground">
-                        {stats.updateSuccessRate.failed} 次
+                        {stats.summary.failureCount} 次
                       </p>
                     </div>
                   </div>
                   <span className="text-2xl font-bold text-red-600">
                     {(
-                      (stats.updateSuccessRate.failed /
-                        (stats.updateSuccessRate.success +
-                          stats.updateSuccessRate.failed)) *
+                      (stats.summary.failureCount / stats.summary.totalUpdates) *
                       100
                     ).toFixed(1)}
                     %
@@ -217,7 +242,7 @@ export default async function StatsPage({ params }: StatsPageProps) {
           <Card>
             <CardHeader>
               <CardTitle>更新时间分布</CardTitle>
-              <CardDescription>最近 5 天的更新次数</CardDescription>
+              <CardDescription>最近更新时间统计</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
@@ -234,13 +259,7 @@ export default async function StatsPage({ params }: StatsPageProps) {
                         <div
                           className="bg-primary h-4 rounded-full transition-all flex items-center justify-end pr-2"
                           style={{
-                            width: `${
-                              (item.count /
-                                Math.max(
-                                  ...stats.updateTimeline.map((i) => i.count)
-                                )) *
-                              100
-                            }%`,
+                            width: `${(item.count / maxCount) * 100}%`,
                           }}
                         >
                           <span className="text-xs font-medium text-primary-foreground">
@@ -263,22 +282,26 @@ export default async function StatsPage({ params }: StatsPageProps) {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {stats.failureReasons.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 border rounded-lg"
-                  >
-                    <div>
-                      <p className="font-medium">{item.reason}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {item.count} 次
-                      </p>
+                {stats.failureReasons.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">暂无失败记录</p>
+                ) : (
+                  stats.failureReasons.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium">{item.reason}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {item.count} 次
+                        </p>
+                      </div>
+                      <div className="text-2xl font-bold text-red-600">
+                        {item.count}
+                      </div>
                     </div>
-                    <div className="text-2xl font-bold text-red-600">
-                      {item.count}
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
@@ -287,4 +310,3 @@ export default async function StatsPage({ params }: StatsPageProps) {
     </AppLayout>
   )
 }
-

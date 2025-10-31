@@ -1,7 +1,11 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { AppLayout } from "@/components/app-layout"
+import { Pagination } from "@/components/pagination"
 import {
   Users,
   Search,
@@ -35,46 +39,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-
-// 模拟平台用户数据
-const mockUsers = [
-  {
-    id: "1",
-    name: "张三",
-    email: "zhangsan@example.com",
-    role: "admin" as const,
-    status: "active" as const,
-    createdAt: "2023-01-15",
-    lastLoginAt: "2024-01-15 10:30:00",
-  },
-  {
-    id: "2",
-    name: "李四",
-    email: "lisi@example.com",
-    role: "app_manager" as const,
-    status: "active" as const,
-    createdAt: "2023-02-20",
-    lastLoginAt: "2024-01-14 14:20:00",
-  },
-  {
-    id: "3",
-    name: "王五",
-    email: "wangwu@example.com",
-    role: "viewer" as const,
-    status: "active" as const,
-    createdAt: "2023-03-10",
-    lastLoginAt: "2024-01-13 09:15:00",
-  },
-  {
-    id: "4",
-    name: "赵六",
-    email: "zhaoliu@example.com",
-    role: "app_manager" as const,
-    status: "inactive" as const,
-    createdAt: "2023-04-05",
-    lastLoginAt: "2024-01-01 11:00:00",
-  },
-]
+import { platformUsersApi } from "@/lib/api"
+import type { User } from "@/lib/api/types"
 
 function getRoleBadge(role: string) {
   const roleMap = {
@@ -107,12 +73,73 @@ function getStatusBadge(status: string) {
 }
 
 export default function AppUsersPage() {
-  const stats = {
-    total: mockUsers.length,
-    active: mockUsers.filter((u) => u.status === "active").length,
-    inactive: mockUsers.filter((u) => u.status === "inactive").length,
-    admins: mockUsers.filter((u) => u.role === "admin").length,
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [page, setPage] = useState(1)
+  const [limit] = useState(20)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [search, setSearch] = useState("")
+  const [roleFilter, setRoleFilter] = useState("")
+  const [statusFilter, setStatusFilter] = useState("")
+
+  const fetchUsers = async () => {
+    setLoading(true)
+    setError("")
+
+    try {
+      const response = await platformUsersApi.getUsers({
+        page,
+        limit,
+        search: search || undefined,
+        role: roleFilter || undefined,
+        status: statusFilter || undefined,
+      })
+
+      if (response.success && response.data) {
+        setUsers(response.data.items)
+        setTotal(response.data.pagination.total)
+        setTotalPages(response.data.pagination.totalPages)
+      } else {
+        setError(response.error?.message || "获取用户列表失败")
+      }
+    } catch (err) {
+      setError("网络错误，请稍后重试")
+    } finally {
+      setLoading(false)
+    }
   }
+
+  useEffect(() => {
+    fetchUsers()
+  }, [page, roleFilter, statusFilter])
+
+  // 搜索防抖
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (page === 1) {
+        fetchUsers()
+      } else {
+        setPage(1)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [search])
+
+  // 统计信息
+  const stats = {
+    total: total,
+    active: users.filter((u) => u.status === "active").length,
+    inactive: users.filter((u) => u.status === "inactive").length,
+    admins: users.filter((u) => u.role === "admin").length,
+  }
+
+  // 安全访问用户属性
+  const getUserStatus = (user: User) => user.status || "unknown"
+  const getUserCreatedAt = (user: User) => user.createdAt || new Date().toISOString()
+  const getUserLastLoginAt = (user: User) => user.lastLoginAt
 
   return (
     <AppLayout>
@@ -180,7 +207,7 @@ export default function AppUsersPage() {
               <div>
                 <CardTitle>用户列表</CardTitle>
                 <CardDescription>
-                  共 {mockUsers.length} 个用户，其中 {stats.active} 个活跃
+                  共 {total} 个用户，其中 {stats.active} 个活跃
                 </CardDescription>
               </div>
               <div className="flex items-center gap-4">
@@ -189,100 +216,155 @@ export default function AppUsersPage() {
                   <Input
                     placeholder="搜索用户名或邮箱..."
                     className="pl-9"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
-                <Select defaultValue="all">
+                <Select value={roleFilter} onValueChange={setRoleFilter}>
                   <SelectTrigger className="w-[180px]">
                     <SelectValue placeholder="筛选角色" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">所有角色</SelectItem>
+                    <SelectItem value="">所有角色</SelectItem>
                     <SelectItem value="admin">管理员</SelectItem>
                     <SelectItem value="app_manager">应用管理员</SelectItem>
                     <SelectItem value="viewer">查看者</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="筛选状态" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">所有状态</SelectItem>
+                    <SelectItem value="active">活跃</SelectItem>
+                    <SelectItem value="inactive">禁用</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>用户</TableHead>
-                  <TableHead>邮箱</TableHead>
-                  <TableHead>角色</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>创建时间</TableHead>
-                  <TableHead>最后登录</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mockUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <UserCircle className="h-4 w-4 text-muted-foreground" />
-                        {user.name}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        {user.email}
-                      </div>
-                    </TableCell>
-                    <TableCell>{getRoleBadge(user.role)}</TableCell>
-                    <TableCell>{getStatusBadge(user.status)}</TableCell>
-                    <TableCell>{user.createdAt}</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div>{user.lastLoginAt.split(" ")[0]}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {user.lastLoginAt.split(" ")[1]}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Edit className="mr-2 h-4 w-4" />
-                            编辑
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>重置密码</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className={
-                              user.status === "active"
-                                ? "text-orange-600"
-                                : "text-green-600"
-                            }
-                          >
-                            {user.status === "active" ? "禁用账户" : "启用账户"}
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            删除用户
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            {error && (
+              <div className="mb-4 text-sm text-destructive bg-destructive/10 p-2 rounded">
+                {error}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                加载中...
+              </div>
+            ) : (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>用户</TableHead>
+                      <TableHead>邮箱</TableHead>
+                      <TableHead>角色</TableHead>
+                      <TableHead>状态</TableHead>
+                      <TableHead>创建时间</TableHead>
+                      <TableHead>最后登录</TableHead>
+                      <TableHead className="text-right">操作</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          暂无用户数据
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      users.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              <UserCircle className="h-4 w-4 text-muted-foreground" />
+                              {user.name}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Mail className="h-4 w-4 text-muted-foreground" />
+                              {user.email}
+                            </div>
+                          </TableCell>
+                          <TableCell>{getRoleBadge(user.role)}</TableCell>
+                          <TableCell>{getStatusBadge(getUserStatus(user))}</TableCell>
+                          <TableCell>
+                            {getUserCreatedAt(user) ? (
+                              new Date(getUserCreatedAt(user)).toLocaleDateString("zh-CN")
+                            ) : (
+                              "-"
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {getUserLastLoginAt(user) ? (
+                              <div className="space-y-1">
+                                <div>
+                                  {new Date(getUserLastLoginAt(user)!).toLocaleDateString("zh-CN")}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {new Date(getUserLastLoginAt(user)!).toLocaleTimeString("zh-CN")}
+                                </div>
+                              </div>
+                            ) : (
+                              "-"
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  编辑
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>重置密码</DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className={
+                                    getUserStatus(user) === "active"
+                                      ? "text-orange-600"
+                                      : "text-green-600"
+                                  }
+                                >
+                                  {getUserStatus(user) === "active" ? "禁用账户" : "启用账户"}
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem className="text-destructive">
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  删除用户
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+
+                {totalPages > 1 && (
+                  <Pagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    total={total}
+                    limit={limit}
+                    onPageChange={setPage}
+                  />
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
     </AppLayout>
   )
 }
-

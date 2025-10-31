@@ -1,13 +1,15 @@
-import Link from "next/link"
-import { notFound } from "next/navigation"
+"use client"
+
+import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { AppLayout } from "@/components/app-layout"
+import { Pagination } from "@/components/pagination"
 import {
   FileText,
   Search,
-  Filter,
   Download,
   CheckCircle2,
   XCircle,
@@ -31,93 +33,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-
-// 模拟应用数据
-const getAppData = (appId: string) => {
-  const apps = {
-    "1": { id: "1", name: "购物 App", icon: "🛒" },
-    "2": { id: "2", name: "社交 App", icon: "💬" },
-    "3": { id: "3", name: "新闻 App", icon: "📰" },
-  }
-  return apps[appId as keyof typeof apps]
-}
-
-// 模拟日志数据
-const getLogs = (appId: string) => {
-  return [
-    {
-      id: "log1",
-      type: "update",
-      action: "发布版本 1.2.0",
-      targetId: "v1",
-      targetType: "version",
-      status: "success",
-      details: {
-        version: "1.2.0",
-        userCount: 1250,
-      },
-      userId: "张三",
-      createdAt: "2024-01-15 10:30:00",
-    },
-    {
-      id: "log2",
-      type: "rollback",
-      action: "回滚版本 1.1.8",
-      targetId: "v3",
-      targetType: "version",
-      status: "success",
-      details: {
-        fromVersion: "1.1.8",
-        toVersion: "1.1.7",
-        reason: "发现严重bug",
-      },
-      userId: "李四",
-      createdAt: "2024-01-06 16:45:00",
-    },
-    {
-      id: "log3",
-      type: "version_create",
-      action: "创建版本 1.1.9",
-      targetId: "v2",
-      targetType: "version",
-      status: "success",
-      details: {
-        version: "1.1.9",
-        name: "Bug修复版本",
-      },
-      userId: "王五",
-      createdAt: "2024-01-10 14:20:00",
-    },
-    {
-      id: "log4",
-      type: "update",
-      action: "更新用户 user-001 到版本 1.2.0",
-      targetId: "u1",
-      targetType: "user",
-      status: "success",
-      details: {
-        userId: "user-001",
-        version: "1.2.0",
-      },
-      userId: "张三",
-      createdAt: "2024-01-14 09:15:00",
-    },
-    {
-      id: "log5",
-      type: "update",
-      action: "发布版本 1.1.9",
-      targetId: "v2",
-      targetType: "version",
-      status: "failed",
-      details: {
-        version: "1.1.9",
-        error: "上传失败：文件损坏",
-      },
-      userId: "李四",
-      createdAt: "2024-01-09 11:30:00",
-    },
-  ]
-}
+import { logsApi, appsApi } from "@/lib/api"
+import type { Log, App } from "@/lib/api/types"
 
 function getActionIcon(type: string) {
   switch (type) {
@@ -148,17 +65,109 @@ function getStatusBadge(status: string) {
   )
 }
 
-interface LogsPageProps {
-  params: Promise<{ appId: string }>
-}
+export default function LogsPage() {
+  const params = useParams()
+  const appId = params.appId as string
+  const [app, setApp] = useState<App | null>(null)
+  const [logs, setLogs] = useState<Log[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [page, setPage] = useState(1)
+  const [limit] = useState(20)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [search, setSearch] = useState("")
+  const [typeFilter, setTypeFilter] = useState("")
+  const [statusFilter, setStatusFilter] = useState("")
 
-export default async function LogsPage({ params }: LogsPageProps) {
-  const { appId } = await params
-  const app = getAppData(appId)
-  const logs = getLogs(appId)
+  const fetchApp = async () => {
+    try {
+      const response = await appsApi.getApp(appId)
+      if (response.success && response.data) {
+        setApp(response.data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch app:", err)
+    }
+  }
+
+  const fetchLogs = async () => {
+    setLoading(true)
+    setError("")
+
+    try {
+      const response = await logsApi.getLogs(appId, {
+        page,
+        limit,
+        search: search || undefined,
+        type: typeFilter || undefined,
+        status: statusFilter as "success" | "failed" | undefined,
+      })
+
+      if (response.success && response.data) {
+        setLogs(response.data.items)
+        setTotal(response.data.pagination.total)
+        setTotalPages(response.data.pagination.totalPages)
+      } else {
+        setError(response.error?.message || "获取日志列表失败")
+      }
+    } catch (err) {
+      setError("网络错误，请稍后重试")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleExport = async () => {
+    try {
+      const blob = await logsApi.exportLogs(appId, {
+        format: "csv",
+      })
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `logs-${appId}-${new Date().toISOString().split("T")[0]}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      alert("导出失败，请稍后重试")
+    }
+  }
+
+  useEffect(() => {
+    if (appId) {
+      fetchApp()
+    }
+  }, [appId])
+
+  useEffect(() => {
+    if (appId) {
+      fetchLogs()
+    }
+  }, [appId, page, typeFilter, statusFilter])
+
+  // 搜索防抖
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (page === 1) {
+        fetchLogs()
+      } else {
+        setPage(1)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [search])
 
   if (!app) {
-    notFound()
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </AppLayout>
+    )
   }
 
   return (
@@ -176,7 +185,7 @@ export default async function LogsPage({ params }: LogsPageProps) {
               </p>
             </div>
           </div>
-          <Button variant="outline">
+          <Button variant="outline" onClick={handleExport}>
             <Download className="mr-2 h-4 w-4" />
             导出日志
           </Button>
@@ -187,7 +196,7 @@ export default async function LogsPage({ params }: LogsPageProps) {
           <CardHeader>
             <CardTitle>操作日志</CardTitle>
             <CardDescription>
-              共 {logs.length} 条操作记录
+              共 {total} 条操作记录
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -197,75 +206,110 @@ export default async function LogsPage({ params }: LogsPageProps) {
                 <Input
                   placeholder="搜索操作类型或操作人..."
                   className="pl-9"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <Select defaultValue="all">
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="筛选类型" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">所有类型</SelectItem>
+                  <SelectItem value="">所有类型</SelectItem>
                   <SelectItem value="update">更新</SelectItem>
                   <SelectItem value="rollback">回滚</SelectItem>
                   <SelectItem value="version_create">版本创建</SelectItem>
                 </SelectContent>
               </Select>
-              <Select defaultValue="all">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="筛选状态" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">所有状态</SelectItem>
+                  <SelectItem value="">所有状态</SelectItem>
                   <SelectItem value="success">成功</SelectItem>
                   <SelectItem value="failed">失败</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>操作类型</TableHead>
-                  <TableHead>操作描述</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>操作人</TableHead>
-                  <TableHead>操作时间</TableHead>
-                  <TableHead>详情</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {logs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getActionIcon(log.type)}
-                        <span className="capitalize">{log.type}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="font-medium">{log.action}</TableCell>
-                    <TableCell>{getStatusBadge(log.status)}</TableCell>
-                    <TableCell>{log.userId}</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div>{log.createdAt.split(" ")[0]}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {log.createdAt.split(" ")[1]}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm">
-                        查看详情
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            {error && (
+              <div className="mb-4 text-sm text-destructive bg-destructive/10 p-2 rounded">
+                {error}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                加载中...
+              </div>
+            ) : (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>操作类型</TableHead>
+                      <TableHead>操作描述</TableHead>
+                      <TableHead>状态</TableHead>
+                      <TableHead>操作人</TableHead>
+                      <TableHead>操作时间</TableHead>
+                      <TableHead>详情</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {logs.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                          暂无日志数据
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      logs.map((log) => (
+                        <TableRow key={log.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {getActionIcon(log.type)}
+                              <span className="capitalize">{log.type}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="font-medium">{log.action}</TableCell>
+                          <TableCell>{getStatusBadge(log.status)}</TableCell>
+                          <TableCell>{log.user?.name || log.userId}</TableCell>
+                          <TableCell>
+                            <div className="space-y-1">
+                              <div>
+                                {new Date(log.createdAt).toLocaleDateString("zh-CN")}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {new Date(log.createdAt).toLocaleTimeString("zh-CN")}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="sm">
+                              查看详情
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+
+                {totalPages > 1 && (
+                  <Pagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    total={total}
+                    limit={limit}
+                    onPageChange={setPage}
+                  />
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
     </AppLayout>
   )
 }
-

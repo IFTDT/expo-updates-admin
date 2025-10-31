@@ -1,13 +1,16 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
 import Link from "next/link"
-import { notFound } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
 import { AppLayout } from "@/components/app-layout"
+import { Pagination } from "@/components/pagination"
 import {
   Users,
   Search,
-  Filter,
   MoreVertical,
   Download,
   RefreshCw,
@@ -36,77 +39,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-
-// 模拟应用数据
-const getAppData = (appId: string) => {
-  const apps = {
-    "1": { id: "1", name: "购物 App", icon: "🛒" },
-    "2": { id: "2", name: "社交 App", icon: "💬" },
-    "3": { id: "3", name: "新闻 App", icon: "📰" },
-  }
-  return apps[appId as keyof typeof apps]
-}
-
-// 模拟用户数据
-const getUsers = (appId: string) => {
-  return [
-    {
-      id: "u1",
-      deviceId: "device-abc123",
-      userId: "user-001",
-      currentVersion: "1.2.0",
-      lastUpdateAt: "2024-01-15 10:30:00",
-      platform: "ios" as const,
-      osVersion: "17.2",
-      appVersion: "1.2.0",
-      status: "online" as const,
-    },
-    {
-      id: "u2",
-      deviceId: "device-def456",
-      userId: "user-002",
-      currentVersion: "1.1.9",
-      lastUpdateAt: "2024-01-14 14:20:00",
-      platform: "android" as const,
-      osVersion: "14.0",
-      appVersion: "1.1.9",
-      status: "online" as const,
-    },
-    {
-      id: "u3",
-      deviceId: "device-ghi789",
-      userId: "user-003",
-      currentVersion: "1.2.0",
-      lastUpdateAt: "2024-01-15 09:15:00",
-      platform: "ios" as const,
-      osVersion: "17.1",
-      appVersion: "1.2.0",
-      status: "offline" as const,
-    },
-    {
-      id: "u4",
-      deviceId: "device-jkl012",
-      userId: "user-004",
-      currentVersion: "1.1.8",
-      lastUpdateAt: "2024-01-10 16:45:00",
-      platform: "android" as const,
-      osVersion: "13.0",
-      appVersion: "1.1.8",
-      status: "offline" as const,
-    },
-    {
-      id: "u5",
-      deviceId: "device-mno345",
-      userId: "user-005",
-      currentVersion: "1.2.0",
-      lastUpdateAt: "2024-01-15 11:20:00",
-      platform: "ios" as const,
-      osVersion: "16.5",
-      appVersion: "1.2.0",
-      status: "online" as const,
-    },
-  ]
-}
+import { appUsersApi, appsApi } from "@/lib/api"
+import type { AppUser, App } from "@/lib/api/types"
 
 function getStatusBadge(status: string) {
   return status === "online" ? (
@@ -122,33 +56,117 @@ function getStatusBadge(status: string) {
   )
 }
 
-function getPlatformIcon(platform: string) {
-  return platform === "ios" ? (
+function getPlatformIcon(platform?: string) {
+  if (!platform) return null
+  return platform.toLowerCase() === "ios" ? (
     <Smartphone className="h-4 w-4 text-blue-600" />
   ) : (
     <Monitor className="h-4 w-4 text-green-600" />
   )
 }
 
-interface UsersPageProps {
-  params: Promise<{ appId: string }>
-}
+export default function UsersPage() {
+  const params = useParams()
+  const appId = params.appId as string
+  const [app, setApp] = useState<App | null>(null)
+  const [users, setUsers] = useState<AppUser[]>([])
+  const [stats, setStats] = useState({
+    total: 0,
+    online: 0,
+    offline: 0,
+    versions: 0,
+  })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [page, setPage] = useState(1)
+  const [limit] = useState(20)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [search, setSearch] = useState("")
+  const [versionFilter, setVersionFilter] = useState("")
+  const [statusFilter, setStatusFilter] = useState("")
+  const [platformFilter, setPlatformFilter] = useState("")
 
-export default async function UsersPage({ params }: UsersPageProps) {
-  const { appId } = await params
-  const app = getAppData(appId)
-  const users = getUsers(appId)
-
-  if (!app) {
-    notFound()
+  const fetchApp = async () => {
+    try {
+      const response = await appsApi.getApp(appId)
+      if (response.success && response.data) {
+        setApp(response.data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch app:", err)
+    }
   }
 
-  // 统计信息
-  const stats = {
-    total: users.length,
-    online: users.filter((u) => u.status === "online").length,
-    offline: users.filter((u) => u.status === "offline").length,
-    versions: new Set(users.map((u) => u.currentVersion)).size,
+  const fetchUsers = async () => {
+    setLoading(true)
+    setError("")
+
+    try {
+      const response = await appUsersApi.getAppUsers(appId, {
+        page,
+        limit,
+        search: search || undefined,
+        version: versionFilter || undefined,
+        status: statusFilter as "online" | "offline" | undefined,
+        platform: platformFilter as "ios" | "android" | undefined,
+      })
+
+      if (response.success && response.data) {
+        setUsers(response.data.items)
+        setTotal(response.data.pagination.total)
+        setTotalPages(response.data.pagination.totalPages)
+        if (response.data.stats) {
+          setStats(response.data.stats)
+        }
+      } else {
+        setError(response.error?.message || "获取用户列表失败")
+      }
+    } catch (err) {
+      setError("网络错误，请稍后重试")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (appId) {
+      fetchApp()
+    }
+  }, [appId])
+
+  useEffect(() => {
+    if (appId) {
+      fetchUsers()
+    }
+  }, [appId, page, versionFilter, statusFilter, platformFilter])
+
+  // 搜索防抖
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (page === 1) {
+        fetchUsers()
+      } else {
+        setPage(1)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [search])
+
+  if (!app) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </AppLayout>
+    )
+  }
+
+  const deviceInfoPlatform = (deviceInfo?: Record<string, unknown>) => {
+    if (!deviceInfo) return undefined
+    return (deviceInfo.platform as string) || undefined
   }
 
   return (
@@ -227,7 +245,7 @@ export default async function UsersPage({ params }: UsersPageProps) {
           <CardHeader>
             <CardTitle>用户列表</CardTitle>
             <CardDescription>
-              共 {users.length} 个用户，其中 {stats.online} 个在线
+              共 {total} 个用户，其中 {stats.online} 个在线
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -237,102 +255,153 @@ export default async function UsersPage({ params }: UsersPageProps) {
                 <Input
                   placeholder="搜索用户 ID 或设备 ID..."
                   className="pl-9"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <Select defaultValue="all">
+              <Select value={versionFilter} onValueChange={setVersionFilter}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="筛选版本" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">所有版本</SelectItem>
-                  <SelectItem value="1.2.0">1.2.0</SelectItem>
-                  <SelectItem value="1.1.9">1.1.9</SelectItem>
-                  <SelectItem value="1.1.8">1.1.8</SelectItem>
+                  <SelectItem value="">所有版本</SelectItem>
+                  {/* 这里可以动态获取版本列表 */}
                 </SelectContent>
               </Select>
-              <Select defaultValue="all">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="筛选状态" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">所有状态</SelectItem>
+                  <SelectItem value="">所有状态</SelectItem>
                   <SelectItem value="online">在线</SelectItem>
                   <SelectItem value="offline">离线</SelectItem>
                 </SelectContent>
               </Select>
+              <Select value={platformFilter} onValueChange={setPlatformFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="筛选平台" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">所有平台</SelectItem>
+                  <SelectItem value="ios">iOS</SelectItem>
+                  <SelectItem value="android">Android</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>用户 ID</TableHead>
-                  <TableHead>设备 ID</TableHead>
-                  <TableHead>平台</TableHead>
-                  <TableHead>当前版本</TableHead>
-                  <TableHead>系统版本</TableHead>
-                  <TableHead>状态</TableHead>
-                  <TableHead>最后更新</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.userId}</TableCell>
-                    <TableCell className="text-muted-foreground font-mono text-sm">
-                      {user.deviceId}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {getPlatformIcon(user.platform)}
-                        <span className="capitalize">{user.platform}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <span className="font-medium">{user.currentVersion}</span>
-                    </TableCell>
-                    <TableCell>{user.osVersion}</TableCell>
-                    <TableCell>{getStatusBadge(user.status)}</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div>{user.lastUpdateAt.split(" ")[0]}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {user.lastUpdateAt.split(" ")[1]}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <RefreshCw className="mr-2 h-4 w-4" />
-                            更新到最新版本
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <RefreshCw className="mr-2 h-4 w-4" />
-                            回滚版本
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem>
-                            <Download className="mr-2 h-4 w-4" />
-                            导出信息
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            {error && (
+              <div className="mb-4 text-sm text-destructive bg-destructive/10 p-2 rounded">
+                {error}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                加载中...
+              </div>
+            ) : (
+              <>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>用户 ID</TableHead>
+                      <TableHead>设备 ID</TableHead>
+                      <TableHead>平台</TableHead>
+                      <TableHead>当前版本</TableHead>
+                      <TableHead>状态</TableHead>
+                      <TableHead>最后更新</TableHead>
+                      <TableHead className="text-right">操作</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {users.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                          暂无用户数据
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      users.map((user) => (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">
+                            {user.userId || "-"}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground font-mono text-sm">
+                            {user.deviceId}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {getPlatformIcon(deviceInfoPlatform(user.deviceInfo))}
+                              <span className="capitalize">
+                                {deviceInfoPlatform(user.deviceInfo) || "-"}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="font-medium">
+                              {user.currentVersion || "-"}
+                            </span>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(user.status)}</TableCell>
+                          <TableCell>
+                            {user.lastUpdateAt ? (
+                              <div className="space-y-1">
+                                <div>
+                                  {new Date(user.lastUpdateAt).toLocaleDateString("zh-CN")}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {new Date(user.lastUpdateAt).toLocaleTimeString("zh-CN")}
+                                </div>
+                              </div>
+                            ) : (
+                              "-"
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem>
+                                  <RefreshCw className="mr-2 h-4 w-4" />
+                                  更新到最新版本
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>
+                                  <RefreshCw className="mr-2 h-4 w-4" />
+                                  回滚版本
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem>
+                                  <Download className="mr-2 h-4 w-4" />
+                                  导出信息
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+
+                {totalPages > 1 && (
+                  <Pagination
+                    currentPage={page}
+                    totalPages={totalPages}
+                    total={total}
+                    limit={limit}
+                    onPageChange={setPage}
+                  />
+                )}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
     </AppLayout>
   )
 }
-

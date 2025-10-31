@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
@@ -40,55 +41,19 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@workspace/ui/components/dialog"
+import { userGroupsApi, appsApi } from "@/lib/api"
+import type { UserGroup, App } from "@/lib/api/types"
 
-// 模拟应用数据
-const getAppData = (appId: string) => {
-  const apps = {
-    "1": { id: "1", name: "购物 App", icon: "🛒" },
-    "2": { id: "2", name: "社交 App", icon: "💬" },
-    "3": { id: "3", name: "新闻 App", icon: "📰" },
-  }
-  return apps[appId as keyof typeof apps]
-}
-
-// 模拟分组数据
-const mockGroups = [
-  {
-    id: "g1",
-    name: "VIP用户",
-    description: "高级付费用户组",
-    userCount: 120,
-    createdAt: "2024-01-01",
-    updatedAt: "2024-01-10",
-  },
-  {
-    id: "g2",
-    name: "测试用户",
-    description: "内部测试人员",
-    userCount: 45,
-    createdAt: "2024-01-05",
-    updatedAt: "2024-01-12",
-  },
-  {
-    id: "g3",
-    name: "Beta测试组",
-    description: "参与Beta测试的用户",
-    userCount: 230,
-    createdAt: "2023-12-20",
-    updatedAt: "2024-01-08",
-  },
-]
-
-interface UserGroupsPageProps {
-  params: Promise<{ appId: string }>
-}
-
-export default function UserGroupsPage({ params }: UserGroupsPageProps) {
-  const [appId, setAppId] = useState<string>("")
-  const [groups, setGroups] = useState(mockGroups)
+export default function UserGroupsPage() {
+  const params = useParams()
+  const appId = params.appId as string
+  const [app, setApp] = useState<App | null>(null)
+  const [groups, setGroups] = useState<UserGroup[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editingGroup, setEditingGroup] = useState<typeof mockGroups[0] | null>(null)
+  const [editingGroup, setEditingGroup] = useState<UserGroup | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
 
   const [formData, setFormData] = useState({
@@ -96,74 +61,127 @@ export default function UserGroupsPage({ params }: UserGroupsPageProps) {
     description: "",
   })
 
-  // 初始化 appId
+  const fetchApp = async () => {
+    try {
+      const response = await appsApi.getApp(appId)
+      if (response.success && response.data) {
+        setApp(response.data)
+      }
+    } catch (err) {
+      console.error("Failed to fetch app:", err)
+    }
+  }
+
+  const fetchGroups = async () => {
+    setLoading(true)
+    setError("")
+
+    try {
+      const response = await userGroupsApi.getUserGroups(appId, {
+        search: searchQuery || undefined,
+      })
+
+      if (response.success && response.data) {
+        setGroups(response.data.items)
+      } else {
+        setError(response.error?.message || "获取分组列表失败")
+      }
+    } catch (err) {
+      setError("网络错误，请稍后重试")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    params.then((p) => setAppId(p.appId))
-  }, [params])
+    if (appId) {
+      fetchApp()
+    }
+  }, [appId])
+
+  useEffect(() => {
+    if (appId) {
+      fetchGroups()
+    }
+  }, [appId, searchQuery])
 
   const handleCreate = () => {
     setFormData({ name: "", description: "" })
     setIsCreateDialogOpen(true)
   }
 
-  const handleEdit = (group: typeof mockGroups[0]) => {
+  const handleEdit = (group: UserGroup) => {
     setEditingGroup(group)
     setFormData({
       name: group.name,
-      description: group.description,
+      description: group.description || "",
     })
     setIsEditDialogOpen(true)
   }
 
-  const handleDelete = (groupId: string) => {
+  const handleDelete = async (groupId: string) => {
     if (confirm("确定要删除这个分组吗？")) {
-      setGroups(groups.filter((g) => g.id !== groupId))
+      try {
+        const response = await userGroupsApi.deleteUserGroup(appId, groupId)
+        if (response.success) {
+          fetchGroups()
+        } else {
+          alert(response.error?.message || "删除失败")
+        }
+      } catch (err) {
+        alert("网络错误，请稍后重试")
+      }
     }
   }
 
-  const handleSave = () => {
-    if (editingGroup) {
-      // 编辑
-      setGroups(
-        groups.map((g) =>
-          g.id === editingGroup.id
-            ? {
-                ...g,
-                name: formData.name,
-                description: formData.description,
-                updatedAt: new Date().toISOString().split("T")[0],
-              }
-            : g
-        )
-      )
-      setIsEditDialogOpen(false)
-      setEditingGroup(null)
-    } else {
-      // 新建
-      const newGroup = {
-        id: `g${Date.now()}`,
-        name: formData.name,
-        description: formData.description,
-        userCount: 0,
-        createdAt: new Date().toISOString().split("T")[0],
-        updatedAt: new Date().toISOString().split("T")[0],
+  const handleSave = async () => {
+    try {
+      if (editingGroup) {
+        // 编辑
+        const response = await userGroupsApi.updateUserGroup(appId, editingGroup.id, {
+          name: formData.name,
+          description: formData.description,
+        })
+        if (response.success) {
+          setIsEditDialogOpen(false)
+          setEditingGroup(null)
+          fetchGroups()
+        } else {
+          alert(response.error?.message || "更新失败")
+        }
+      } else {
+        // 新建
+        const response = await userGroupsApi.createUserGroup(appId, {
+          name: formData.name,
+          description: formData.description,
+        })
+        if (response.success) {
+          setIsCreateDialogOpen(false)
+          fetchGroups()
+        } else {
+          alert(response.error?.message || "创建失败")
+        }
       }
-      setGroups([...groups, newGroup])
-      setIsCreateDialogOpen(false)
+      setFormData({ name: "", description: "" })
+    } catch (err) {
+      alert("网络错误，请稍后重试")
     }
-    setFormData({ name: "", description: "" })
   }
 
   const filteredGroups = groups.filter(
     (group) =>
       group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      group.description.toLowerCase().includes(searchQuery.toLowerCase())
+      (group.description || "").toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const app = appId ? getAppData(appId) : null
-
   if (!app) {
-    return null
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </AppLayout>
+    )
   }
 
   return (
@@ -308,75 +326,90 @@ export default function UserGroupsPage({ params }: UserGroupsPageProps) {
             </div>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>分组名称</TableHead>
-                  <TableHead>描述</TableHead>
-                  <TableHead>用户数</TableHead>
-                  <TableHead>创建时间</TableHead>
-                  <TableHead>更新时间</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredGroups.length === 0 ? (
+            {error && (
+              <div className="mb-4 text-sm text-destructive bg-destructive/10 p-2 rounded">
+                {error}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                加载中...
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                      {searchQuery ? "未找到匹配的分组" : "暂无分组，点击右上角创建"}
-                    </TableCell>
+                    <TableHead>分组名称</TableHead>
+                    <TableHead>描述</TableHead>
+                    <TableHead>用户数</TableHead>
+                    <TableHead>创建时间</TableHead>
+                    <TableHead>更新时间</TableHead>
+                    <TableHead className="text-right">操作</TableHead>
                   </TableRow>
-                ) : (
-                  filteredGroups.map((group) => (
-                    <TableRow key={group.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                          {group.name}
-                        </div>
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {group.description || "-"}
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium">{group.userCount}</span>{" "}
-                        用户
-                      </TableCell>
-                      <TableCell>{group.createdAt}</TableCell>
-                      <TableCell>{group.updatedAt}</TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleEdit(group)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              编辑
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>管理用户</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => handleDelete(group.id)}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              删除
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                </TableHeader>
+                <TableBody>
+                  {filteredGroups.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                        {searchQuery ? "未找到匹配的分组" : "暂无分组，点击右上角创建"}
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    filteredGroups.map((group) => (
+                      <TableRow key={group.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            {group.name}
+                          </div>
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate">
+                          {group.description || "-"}
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-medium">{group.userCount}</span>{" "}
+                          用户
+                        </TableCell>
+                        <TableCell>
+                          {new Date(group.createdAt).toLocaleDateString("zh-CN")}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(group.updatedAt).toLocaleDateString("zh-CN")}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleEdit(group)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                编辑
+                              </DropdownMenuItem>
+                              <DropdownMenuItem>管理用户</DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => handleDelete(group.id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                删除
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
     </AppLayout>
   )
 }
-

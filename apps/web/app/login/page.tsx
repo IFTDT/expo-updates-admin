@@ -1,20 +1,42 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
+import { authApi } from "@/lib/api"
 
 export default function LoginPage() {
+  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [rememberMe, setRememberMe] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    // TODO: 实现登录逻辑
-    console.log("Login:", { email, password })
+    setError("")
+    setLoading(true)
+
+    try {
+      const response = await authApi.login(email, password, rememberMe)
+
+      if (response.success) {
+        // 登录成功，跳转到应用列表
+        router.push("/apps")
+        router.refresh()
+      } else {
+        setError(response.error?.message || "登录失败，请检查邮箱和密码")
+      }
+    } catch (err) {
+      setError("网络错误，请稍后重试")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -63,6 +85,8 @@ export default function LoginPage() {
                 <input
                   id="remember"
                   type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
                   className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                 />
                 <Label
@@ -72,8 +96,13 @@ export default function LoginPage() {
                   记住我
                 </Label>
               </div>
-              <Button type="submit" className="w-full">
-                登录
+              {error && (
+                <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
+                  {error}
+                </div>
+              )}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "登录中..." : "登录"}
               </Button>
             </form>
           </CardContent>

@@ -1,0 +1,79 @@
+import { apiClient } from "./client";
+import { API_PATHS } from "./config";
+import type {
+  ApiResponse,
+  Version,
+  PaginatedResponse,
+  VersionListParams,
+  CreateVersionRequest,
+  PublishVersionRequest,
+  RollbackVersionRequest,
+} from "./types";
+
+/**
+ * 版本相关 API
+ */
+export const versionsApi = {
+  /**
+   * 获取版本列表
+   */
+  async getVersions(
+    appId: string,
+    params?: VersionListParams
+  ): Promise<ApiResponse<PaginatedResponse<Version>>> {
+    return apiClient.get<PaginatedResponse<Version>>(API_PATHS.apps.versions(appId), params as Record<string, unknown>);
+  },
+
+  /**
+   * 获取版本详情
+   */
+  async getVersion(appId: string, id: string): Promise<ApiResponse<Version>> {
+    return apiClient.get<Version>(API_PATHS.apps.versionDetail(appId, id));
+  },
+
+  /**
+   * 创建版本
+   */
+  async createVersion(
+    appId: string,
+    data: CreateVersionRequest
+  ): Promise<ApiResponse<Version>> {
+    return apiClient.post<Version>(API_PATHS.apps.versions(appId), data);
+  },
+
+  /**
+   * 删除版本
+   */
+  async deleteVersion(appId: string, id: string): Promise<ApiResponse<{ message: string }>> {
+    return apiClient.delete<{ message: string }>(API_PATHS.apps.versionDetail(appId, id));
+  },
+
+  /**
+   * 发布版本
+   */
+  async publishVersion(
+    appId: string,
+    id: string,
+    data?: PublishVersionRequest
+  ): Promise<ApiResponse<{ taskId: string; status: string; message?: string }>> {
+    return apiClient.post<{ taskId: string; status: string; message?: string }>(
+      API_PATHS.apps.versionPublish(appId, id),
+      data
+    );
+  },
+
+  /**
+   * 回滚版本
+   */
+  async rollbackVersion(
+    appId: string,
+    id: string,
+    data: RollbackVersionRequest
+  ): Promise<ApiResponse<{ taskId: string; status: string; message?: string }>> {
+    return apiClient.post<{ taskId: string; status: string; message?: string }>(
+      API_PATHS.apps.versionRollback(appId, id),
+      data
+    );
+  },
+};
+

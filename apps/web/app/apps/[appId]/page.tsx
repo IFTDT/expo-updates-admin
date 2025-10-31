@@ -1,5 +1,8 @@
+"use client"
+
+import { useState, useEffect } from "react"
 import Link from "next/link"
-import { notFound } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
 import { AppLayout } from "@/components/app-layout"
@@ -12,69 +15,71 @@ import {
   RotateCcw,
   Settings,
 } from "lucide-react"
+import { appsApi } from "@/lib/api"
+import type { App } from "@/lib/api/types"
 
-// 模拟应用数据
-const getAppData = (appId: string) => {
-  const apps = {
-    "1": {
-      id: "1",
-      name: "购物 App",
-      icon: "🛒",
-      appId: "com.example.shopping",
-      currentVersion: "1.2.0",
-      status: "active" as const,
-      createdAt: "2023-06-01",
-      lastUpdated: "2024-01-15",
-      owner: "张三",
-      description: "一个功能完善的购物应用",
-      userCount: 1250,
-      updateCount: 8,
-      versions: 12,
-    },
-    "2": {
-      id: "2",
-      name: "社交 App",
-      icon: "💬",
-      appId: "com.example.social",
-      currentVersion: "2.0.1",
-      status: "active" as const,
-      createdAt: "2023-05-15",
-      lastUpdated: "2024-01-14",
-      owner: "李四",
-      description: "社交应用平台",
-      userCount: 3450,
-      updateCount: 12,
-      versions: 18,
-    },
-    "3": {
-      id: "3",
-      name: "新闻 App",
-      icon: "📰",
-      appId: "com.example.news",
-      currentVersion: "1.5.3",
-      status: "active" as const,
-      createdAt: "2023-07-10",
-      lastUpdated: "2024-01-13",
-      owner: "王五",
-      description: "实时新闻资讯应用",
-      userCount: 890,
-      updateCount: 5,
-      versions: 9,
-    },
+export default function AppDetailPage() {
+  const params = useParams()
+  const router = useRouter()
+  const appId = params.appId as string
+  const [app, setApp] = useState<App | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+
+  useEffect(() => {
+    const fetchApp = async () => {
+      setLoading(true)
+      setError("")
+
+      try {
+        const response = await appsApi.getApp(appId)
+
+        if (response.success && response.data) {
+          setApp(response.data)
+        } else {
+          setError(response.error?.message || "获取应用信息失败")
+        }
+      } catch (err) {
+        setError("网络错误，请稍后重试")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    if (appId) {
+      fetchApp()
+    }
+  }, [appId])
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex items-center justify-center py-12">
+          <p className="text-muted-foreground">加载中...</p>
+        </div>
+      </AppLayout>
+    )
   }
-  return apps[appId as keyof typeof apps]
-}
 
-interface AppDetailPageProps {
-  params: Promise<{ appId: string }>
-}
-
-export default async function AppDetailPage({ params }: AppDetailPageProps) {
-  const { appId } = await params
-  const app = getAppData(appId)
-
-  if (!app) {
-    notFound()
+  if (error || !app) {
+    return (
+      <AppLayout>
+        <Card className="border-destructive">
+          <CardContent className="pt-6">
+            <p className="text-sm text-destructive">
+              {error || "应用不存在"}
+            </p>
+            <Button
+              variant="outline"
+              className="mt-4"
+              onClick={() => router.push("/apps")}
+            >
+              返回应用列表
+            </Button>
+          </CardContent>
+        </Card>
+      </AppLayout>
+    )
   }
 
   return (
@@ -85,10 +90,12 @@ export default async function AppDetailPage({ params }: AppDetailPageProps) {
           <div className="flex items-center gap-4">
             <div>
               <h1 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-                <span className="text-4xl">{app.icon}</span>
+                <span className="text-4xl">{app.icon || "📱"}</span>
                 {app.name}
               </h1>
-              <p className="text-muted-foreground mt-1">{app.description}</p>
+              <p className="text-muted-foreground mt-1">
+                {app.description || "暂无描述"}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -113,9 +120,11 @@ export default async function AppDetailPage({ params }: AppDetailPageProps) {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{app.currentVersion}</div>
+              <div className="text-2xl font-bold">
+                {app.currentVersion || "-"}
+              </div>
               <p className="text-xs text-muted-foreground">
-                已发布 {app.versions} 个版本
+                已发布 {app.versions || 0} 个版本
               </p>
             </CardContent>
           </Card>
@@ -138,7 +147,7 @@ export default async function AppDetailPage({ params }: AppDetailPageProps) {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{app.updateCount}</div>
-              <p className="text-xs text-muted-foreground">本月更新</p>
+              <p className="text-xs text-muted-foreground">总更新次数</p>
             </CardContent>
           </Card>
           <Card>
@@ -148,13 +157,13 @@ export default async function AppDetailPage({ params }: AppDetailPageProps) {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {new Date(app.lastUpdated).toLocaleDateString("zh-CN", {
+                {new Date(app.updatedAt).toLocaleDateString("zh-CN", {
                   month: "short",
                   day: "numeric",
                 })}
               </div>
               <p className="text-xs text-muted-foreground">
-                {app.lastUpdated}
+                {new Date(app.updatedAt).toLocaleDateString("zh-CN")}
               </p>
             </CardContent>
           </Card>
@@ -170,29 +179,23 @@ export default async function AppDetailPage({ params }: AppDetailPageProps) {
             <CardContent className="space-y-4">
               <div className="grid gap-4">
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    应用 ID
-                  </span>
+                  <span className="text-sm text-muted-foreground">应用 ID</span>
                   <span className="text-sm font-medium">{app.appId}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    创建时间
-                  </span>
+                  <span className="text-sm text-muted-foreground">创建时间</span>
                   <span className="text-sm font-medium">
-                    {app.createdAt}
+                    {new Date(app.createdAt).toLocaleDateString("zh-CN")}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    负责人
+                  <span className="text-sm text-muted-foreground">负责人</span>
+                  <span className="text-sm font-medium">
+                    {app.owner?.name || "-"}
                   </span>
-                  <span className="text-sm font-medium">{app.owner}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">
-                    状态
-                  </span>
+                  <span className="text-sm text-muted-foreground">状态</span>
                   <span
                     className={`rounded-full px-2 py-1 text-xs font-medium ${
                       app.status === "active"
@@ -242,4 +245,3 @@ export default async function AppDetailPage({ params }: AppDetailPageProps) {
     </AppLayout>
   )
 }
-

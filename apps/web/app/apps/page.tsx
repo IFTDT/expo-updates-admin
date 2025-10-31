@@ -1,47 +1,79 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
-import { Package, Activity, Users, ArrowRight } from "lucide-react"
+import { Input } from "@workspace/ui/components/input"
+import { Package, Activity, Users, ArrowRight, Search } from "lucide-react"
 import { AppLayout } from "@/components/app-layout"
-
-// 模拟应用数据
-const mockApps = [
-  {
-    id: "1",
-    name: "购物 App",
-    icon: "🛒",
-    appId: "com.example.shopping",
-    currentVersion: "1.2.0",
-    status: "active" as const,
-    lastUpdated: "2024-01-15",
-    userCount: 1250,
-    updateCount: 8,
-  },
-  {
-    id: "2",
-    name: "社交 App",
-    icon: "💬",
-    appId: "com.example.social",
-    currentVersion: "2.0.1",
-    status: "active" as const,
-    lastUpdated: "2024-01-14",
-    userCount: 3450,
-    updateCount: 12,
-  },
-  {
-    id: "3",
-    name: "新闻 App",
-    icon: "📰",
-    appId: "com.example.news",
-    currentVersion: "1.5.3",
-    status: "active" as const,
-    lastUpdated: "2024-01-13",
-    userCount: 890,
-    updateCount: 5,
-  },
-]
+import { Pagination } from "@/components/pagination"
+import { appsApi } from "@/lib/api"
+import type { App } from "@/lib/api/types"
 
 export default function AppsPage() {
+  const router = useRouter()
+  const [apps, setApps] = useState<App[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
+  const [page, setPage] = useState(1)
+  const [limit] = useState(20)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [search, setSearch] = useState("")
+  const [status, setStatus] = useState<string>("")
+
+  const fetchApps = async () => {
+    setLoading(true)
+    setError("")
+
+    try {
+      const response = await appsApi.getApps({
+        page,
+        limit,
+        search: search || undefined,
+        status: status || undefined,
+      })
+
+      if (response.success && response.data) {
+        setApps(response.data.items)
+        setTotal(response.data.pagination.total)
+        setTotalPages(response.data.pagination.totalPages)
+      } else {
+        setError(response.error?.message || "获取应用列表失败")
+      }
+    } catch (err) {
+      setError("网络错误，请稍后重试")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchApps()
+  }, [page, search, status])
+
+  // 搜索防抖
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (page === 1) {
+        fetchApps()
+      } else {
+        setPage(1)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [search])
+
+  // 统计信息
+  const stats = {
+    total: apps.length,
+    totalUsers: apps.reduce((sum, app) => sum + (app.userCount || 0), 0),
+    totalUpdates: apps.reduce((sum, app) => sum + (app.updateCount || 0), 0),
+  }
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -53,7 +85,7 @@ export default function AppsPage() {
               管理您的 Expo 应用热更新
             </p>
           </div>
-          <Button>添加应用</Button>
+          <Button onClick={() => router.push("/apps/new")}>添加应用</Button>
         </div>
 
         {/* Stats Cards */}
@@ -64,9 +96,9 @@ export default function AppsPage() {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{mockApps.length}</div>
+              <div className="text-2xl font-bold">{total}</div>
               <p className="text-xs text-muted-foreground">
-                全部正常运行
+                全部应用
               </p>
             </CardContent>
           </Card>
@@ -77,7 +109,7 @@ export default function AppsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {mockApps.reduce((sum, app) => sum + app.userCount, 0).toLocaleString()}
+                {stats.totalUsers.toLocaleString()}
               </div>
               <p className="text-xs text-muted-foreground">
                 活跃用户总数
@@ -91,70 +123,129 @@ export default function AppsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {mockApps.reduce((sum, app) => sum + app.updateCount, 0)}
+                {stats.totalUpdates}
               </div>
               <p className="text-xs text-muted-foreground">
-                本月发布次数
+                总更新次数
               </p>
             </CardContent>
           </Card>
         </div>
 
+        {/* Search and Filter */}
+        <Card>
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="搜索应用名称或应用 ID..."
+                  className="pl-9"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Error Message */}
+        {error && (
+          <Card className="border-destructive">
+            <CardContent className="pt-6">
+              <p className="text-sm text-destructive">{error}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Loading State */}
+        {loading && (
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground">加载中...</p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* App List */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {mockApps.map((app) => (
-            <Card key={app.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="text-3xl">{app.icon}</div>
-                    <div>
-                      <CardTitle className="text-lg">{app.name}</CardTitle>
-                      <CardDescription className="text-xs">
-                        {app.appId}
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <span
-                    className={`rounded-full px-2 py-1 text-xs font-medium ${
-                      app.status === "active"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                        : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
-                    }`}
-                  >
-                    {app.status === "active" ? "正常" : "异常"}
-                  </span>
+        {!loading && !error && (
+          <>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {apps.length === 0 ? (
+                <div className="col-span-full text-center py-8 text-muted-foreground">
+                  暂无应用，点击右上角添加应用
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">当前版本</span>
-                    <span className="font-medium">{app.currentVersion}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">用户数</span>
-                    <span className="font-medium">
-                      {app.userCount.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">更新时间</span>
-                    <span className="font-medium">{app.lastUpdated}</span>
-                  </div>
-                </div>
-                <Link href={`/apps/${app.id}`}>
-                  <Button className="w-full" variant="outline">
-                    进入管理
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+              ) : (
+                apps.map((app) => (
+                  <Card key={app.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="text-3xl">{app.icon || "📱"}</div>
+                          <div>
+                            <CardTitle className="text-lg">{app.name}</CardTitle>
+                            <CardDescription className="text-xs">
+                              {app.appId}
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <span
+                          className={`rounded-full px-2 py-1 text-xs font-medium ${
+                            app.status === "active"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
+                              : "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300"
+                          }`}
+                        >
+                          {app.status === "active" ? "正常" : "异常"}
+                        </span>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">当前版本</span>
+                          <span className="font-medium">{app.currentVersion || "-"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">用户数</span>
+                          <span className="font-medium">
+                            {app.userCount.toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">更新时间</span>
+                          <span className="font-medium">
+                            {new Date(app.updatedAt).toLocaleDateString("zh-CN")}
+                          </span>
+                        </div>
+                      </div>
+                      <Link href={`/apps/${app.id}`}>
+                        <Button className="w-full" variant="outline">
+                          进入管理
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <Card>
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  total={total}
+                  limit={limit}
+                  onPageChange={setPage}
+                />
+              </Card>
+            )}
+          </>
+        )}
       </div>
     </AppLayout>
   )
 }
-
