@@ -1,0 +1,232 @@
+---
+description: 技术栈规范，定义项目使用的技术栈、工具链和最佳实践
+globs:
+alwaysApply: true
+---
+# 技术栈规范
+
+## 技术栈概览
+
+本项目采用现代化的前端技术栈，基于 **Next.js + React** 生态系统构建，具有高性能、类型安全和良好的开发体验。
+
+### 架构特点
+- **Monorepo 架构**：使用 pnpm workspaces + Turbo 管理多包项目
+- **类型安全**：全栈 TypeScript 开发
+- **现代前端**：Next.js 15 + React 19 构建高性能 Web 应用
+- **组件库**：基于 shadcn/ui 的组件系统
+- **样式方案**：Tailwind CSS 4 提供原子化样式
+
+## 前端技术栈 (Web)
+
+### 核心框架
+- **Next.js** `^15.4.5` - React 全栈框架，支持 App Router
+- **React** `^19.1.1` - 用户界面库
+- **React DOM** `^19.1.1` - DOM 渲染器
+
+### 构建工具
+- **Turbo** `^2.5.5` - 高性能构建系统，支持增量构建和缓存
+- **Next.js Turbopack** - 快速开发服务器（使用 `--turbopack` 标志）
+
+### UI 组件库
+- **shadcn/ui** - 基于 Radix UI 的组件系统
+  - **@radix-ui/react-slot** `^1.2.3` - 灵活的组件插槽
+  - **class-variance-authority** `^0.7.1` - 组件变体管理
+  - **tailwind-merge** `^3.3.1` - Tailwind 类名合并工具
+  - **clsx** `^2.1.1` - 条件类名工具
+
+### 样式方案
+- **Tailwind CSS** `^4.1.11` - 原子化 CSS 框架
+- **@tailwindcss/postcss** `^4.1.11` - Tailwind CSS PostCSS 插件
+- **tw-animate-css** `^1.3.6` - Tailwind 动画工具
+
+### 图标库
+- **lucide-react** `^0.475.0` - 现代化的图标库
+
+### 主题管理
+- **next-themes** `^0.4.6` - Next.js 主题切换库，支持暗色模式
+
+### 数据验证
+- **Zod** `^3.25.76` - TypeScript 优先的数据验证库
+
+## 开发工具与配置
+
+### 包管理
+- **pnpm** `10.4.1` - 快速、节省磁盘空间的包管理器
+- **workspace:** - 内部包引用约定（`workspace:*` 或 `workspace:^`）
+
+### 构建系统
+- **Turbo** - Monorepo 构建工具
+  - **构建任务**：支持增量构建和缓存
+  - **开发任务**：并行启动，不缓存
+  - **代码检查**：并行执行 lint 任务
+  - **类型检查**：支持类型检查任务
+
+### 代码质量
+- **ESLint** `^9.32.0` - 代码检查工具
+- **@typescript-eslint/eslint-plugin** `^8.39.0` - TypeScript ESLint 插件
+- **@typescript-eslint/parser** `^8.39.0` - TypeScript ESLint 解析器
+- **eslint-plugin-react** `^7.37.5` - React ESLint 插件
+- **eslint-plugin-react-hooks** `^5.2.0` - React Hooks ESLint 插件
+- **@next/eslint-plugin-next** `^15.4.5` - Next.js ESLint 插件
+- **eslint-plugin-turbo** `^2.5.5` - Turbo ESLint 插件
+- **eslint-config-prettier** `^9.1.2` - 禁用与 Prettier 冲突的规则
+- **eslint-plugin-only-warn** `^1.1.0` - 将所有错误转换为警告
+
+### 代码格式化
+- **Prettier** `^3.6.2` - 代码格式化工具
+
+### TypeScript 配置
+- **TypeScript** `^5.9.2` - 类型系统
+- **@types/node** `^20.19.9` - Node.js 类型定义
+- **@types/react** `^19.1.9` - React 类型定义
+- **@types/react-dom** `^19.1.7` - React DOM 类型定义
+
+### 共享配置包
+- **@workspace/eslint-config** - 共享 ESLint 配置
+  - `base` - 基础配置
+  - `next-js` - Next.js 专用配置
+  - `react-internal` - React 内部规则配置
+- **@workspace/typescript-config** - 共享 TypeScript 配置
+  - `base` - 基础配置
+  - `nextjs` - Next.js 专用配置
+  - `react-library` - React 库配置
+
+## 组件系统架构
+
+### shadcn/ui 集成
+- 组件存储在 `packages/ui/src/components/` 目录
+- 使用 `components.json` 配置组件路径
+- 支持通过 CLI 添加新组件：`pnpm dlx shadcn@latest add <component> -c apps/web`
+
+### 组件导出规范
+UI 包通过 `package.json` 的 `exports` 字段导出：
+- `./components/*` - 组件
+- `./lib/*` - 工具函数
+- `./hooks/*` - Hooks
+- `./globals.css` - 全局样式
+
+### 样式架构
+- 全局样式定义在 `packages/ui/src/styles/globals.css`
+- 使用 Tailwind CSS 变量系统
+- 支持 CSS 变量主题切换
+
+## 技术栈最佳实践
+
+### 1. 类型安全
+- 使用 TypeScript 严格模式
+- 通过 Zod 进行运行时类型验证
+- 利用 Next.js 的类型推断
+- 使用共享 TypeScript 配置确保一致性
+
+### 2. 代码组织
+- 遵循单一职责原则
+- 共享组件放在 `packages/ui/src/components/`
+- 应用特定组件放在 `apps/web/components/`
+- 使用 barrel exports 管理模块导出
+
+### 3. 性能优化
+- 使用 Next.js App Router 的代码分割
+- 利用 Turbo 的增量构建和缓存
+- 使用 React 19 的新特性（如 Server Components）
+- 优化 Tailwind CSS 的生产构建
+
+### 4. 开发体验
+- 使用 pnpm workspaces 管理依赖
+- 配置统一的 ESLint 规则
+- 使用 Turbo 加速开发和构建
+- 利用 Next.js Turbopack 快速开发服务器
+
+### 5. 组件开发
+- 遵循 shadcn/ui 组件模式
+- 使用 Radix UI 作为底层原语
+- 利用 CVA 管理组件变体
+- 保持组件的可访问性
+
+### 6. 样式管理
+- 优先使用 Tailwind CSS 工具类
+- 使用 CSS 变量进行主题管理
+- 避免内联样式，保持一致性
+- 利用 Tailwind 的响应式工具
+
+## 部署与基础设施
+
+### 构建与部署
+- 使用 `pnpm run build` 构建 Next.js 应用
+- 构建输出在 `.next/` 目录
+- 支持部署到 Vercel、Netlify、Cloudflare Pages 等平台
+
+### 环境变量
+- 使用 `.env.local` 存储本地环境变量（不提交到版本控制）
+- 使用 `.env.example` 提供示例配置
+- Next.js 自动处理环境变量
+
+## 版本管理策略
+
+### 依赖更新原则
+- 定期更新依赖到最新稳定版本
+- 优先使用兼容的版本范围
+- 测试兼容性后再升级
+- 保持依赖版本的一致性
+
+### 技术栈演进
+- 关注 Next.js 和 React 的新特性
+- 评估新技术的稳定性和生态
+- 保持技术栈的现代化
+- 文档化技术决策过程
+
+## 开发环境要求
+
+### 必需工具
+- **Node.js** >= 20.0.0
+- **pnpm** >= 10.0.0
+- **Git** >= 2.30.0
+
+### 推荐工具
+- **VS Code** - 代码编辑器
+- **ESLint** - VS Code ESLint 扩展
+- **Prettier** - VS Code Prettier 扩展
+- **Tailwind CSS IntelliSense** - Tailwind CSS 智能提示
+
+### 环境配置
+- 配置 ESLint 和 Prettier
+- 设置编辑器格式化保存
+- 配置 Tailwind CSS IntelliSense
+- 设置 Git hooks（如需要）
+
+## 常用命令
+
+### 开发
+```bash
+# 启动开发服务器
+pnpm run dev
+
+# 在特定应用中运行
+pnpm --filter web dev
+```
+
+### 构建
+```bash
+# 构建所有应用
+pnpm run build
+
+# 构建特定应用
+pnpm --filter web build
+```
+
+### 代码质量
+```bash
+# 检查所有代码
+pnpm run lint
+
+# 格式化代码
+pnpm run format
+
+# 类型检查
+pnpm --filter web typecheck
+```
+
+### 组件管理
+```bash
+# 添加 shadcn/ui 组件
+pnpm dlx shadcn@latest add button -c apps/web
+```
