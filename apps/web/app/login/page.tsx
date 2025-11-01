@@ -7,10 +7,11 @@ import { Button } from "@workspace/ui/components/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
-import { authApi } from "@/lib/api"
+import { useAuth } from "@/lib/contexts/auth-context"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { login } = useAuth()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
@@ -23,14 +24,14 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await authApi.login(email, password, rememberMe)
+      const success = await login(email, password, rememberMe)
 
-      if (response.success) {
+      if (success) {
         // 登录成功，跳转到应用列表
         router.push("/apps")
         router.refresh()
       } else {
-        setError(response.error?.message || "登录失败，请检查邮箱和密码")
+        setError("登录失败，请检查邮箱和密码")
       }
     } catch (err) {
       setError("网络错误，请稍后重试")

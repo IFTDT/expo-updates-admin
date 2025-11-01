@@ -31,6 +31,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+import { useAuth } from "@/lib/contexts/auth-context"
 
 interface SidebarProps {
   className?: string
@@ -90,6 +91,7 @@ export function AppSidebar({ className }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = React.useState(false)
   const [isMobileOpen, setIsMobileOpen] = React.useState(false)
   const pathname = usePathname()
+  const { user, logout } = useAuth()
 
   // 判断是否在应用详情页或子页面
   const isAppDetailPage = pathname?.startsWith("/apps/") && pathname !== "/apps"
@@ -204,15 +206,17 @@ export function AppSidebar({ className }: SidebarProps) {
                   )}
                 >
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src="/avatar.png" alt="User" />
-                    <AvatarFallback>U</AvatarFallback>
+                    <AvatarImage src={user?.avatar || "/avatar.png"} alt="User" />
+                    <AvatarFallback>
+                      {user?.name?.charAt(0).toUpperCase() || "U"}
+                    </AvatarFallback>
                   </Avatar>
                   {!isCollapsed && (
                     <>
                       <div className="flex flex-col items-start">
-                        <span className="text-sm font-medium">用户名</span>
+                        <span className="text-sm font-medium">{user?.name || "用户名"}</span>
                         <span className="text-xs text-muted-foreground">
-                          user@example.com
+                          {user?.email || "user@example.com"}
                         </span>
                       </div>
                     </>
@@ -231,7 +235,10 @@ export function AppSidebar({ className }: SidebarProps) {
                   <span>设置</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive">
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => logout()}
+                >
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>退出登录</span>
                 </DropdownMenuItem>

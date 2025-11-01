@@ -8,6 +8,8 @@ class ApiClient {
   private baseURL: string;
   private timeout: number;
   private accessToken: string | null = null;
+  private isRefreshing = false;
+  private refreshPromise: Promise<boolean> | null = null;
 
   constructor(baseURL: string, timeout: number) {
     this.baseURL = baseURL;
@@ -41,11 +43,64 @@ class ApiClient {
   }
 
   /**
+   * 静默刷新 token
+   */
+  private async silentRefresh(): Promise<boolean> {
+    if (this.isRefreshing && this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    this.isRefreshing = true;
+    this.refreshPromise = (async () => {
+      try {
+        const refreshToken = typeof window !== "undefined"
+          ? localStorage.getItem("refreshToken")
+          : null;
+
+        if (!refreshToken) {
+          return false;
+        }
+
+        const response = await fetch(`${this.baseURL}/api/auth/refresh`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success && data.data) {
+          this.setAccessToken(data.data.accessToken);
+          return true;
+        }
+
+        // 刷新失败，清除所有 token
+        this.setAccessToken(null);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("refreshToken");
+        }
+        return false;
+      } catch (error) {
+        console.error("Token refresh failed:", error);
+        return false;
+      } finally {
+        this.isRefreshing = false;
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
+  }
+
+  /**
    * 创建请求
    */
   private async request<T>(
     url: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    retryCount = 0
   ): Promise<ApiResponse<T>> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
@@ -79,6 +134,16 @@ class ApiClient {
       }
 
       const data = await response.json();
+
+      // 处理 401 未授权错误 - 尝试刷新 token
+      if (response.status === 401 && retryCount === 0 && !url.includes("/auth/refresh")) {
+        const refreshed = await this.silentRefresh();
+        if (refreshed) {
+          // 刷新成功，重试原请求
+          return this.request<T>(url, options, retryCount + 1);
+        }
+        // 刷新失败，返回错误
+      }
 
       // 处理 HTTP 错误状态
       if (!response.ok) {

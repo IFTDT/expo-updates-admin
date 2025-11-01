@@ -33,7 +33,7 @@ export default function AppsPage() {
         page,
         limit,
         search: search || undefined,
-        status: status || undefined,
+        status: (status && (status === "active" || status === "inactive")) ? status as "active" | "inactive" : undefined,
       })
 
       if (response.success && response.data) {
