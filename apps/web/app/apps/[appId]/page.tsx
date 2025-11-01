@@ -5,6 +5,16 @@ import Link from "next/link"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
+import { Input } from "@workspace/ui/components/input"
+import { Label } from "@workspace/ui/components/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@workspace/ui/components/dialog"
 import { AppLayout } from "@/components/app-layout"
 import {
   Package,
@@ -16,7 +26,7 @@ import {
   Settings,
 } from "lucide-react"
 import { appsApi } from "@/lib/api"
-import type { App } from "@/lib/api/types"
+import type { App, UpdateAppRequest } from "@/lib/api/types"
 
 export default function AppDetailPage() {
   const params = useParams()
@@ -25,6 +35,15 @@ export default function AppDetailPage() {
   const [app, setApp] = useState<App | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
+
+  // 设置对话框状态
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false)
+  const [settingsFormData, setSettingsFormData] = useState<UpdateAppRequest & { icon?: string }>({
+    name: "",
+    icon: "",
+  })
+  const [settingsError, setSettingsError] = useState("")
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     const fetchApp = async () => {
@@ -50,6 +69,73 @@ export default function AppDetailPage() {
       fetchApp()
     }
   }, [appId])
+
+  // 处理打开设置对话框
+  const openSettingsDialog = () => {
+    if (app) {
+      setSettingsFormData({
+        name: app.name,
+        icon: app.icon || "",
+      })
+      setSettingsError("")
+      setIsSettingsDialogOpen(true)
+    }
+  }
+
+  // 处理保存设置
+  const handleSaveSettings = async () => {
+    if (!app) return
+
+    if (!settingsFormData.name || settingsFormData.name.trim().length === 0) {
+      setSettingsError("应用名称不能为空")
+      return
+    }
+
+    // 验证图标 URL（如果提供）
+    if (settingsFormData.icon && settingsFormData.icon.trim() !== "") {
+      // 如果输入的是URL，验证格式
+      if (settingsFormData.icon.trim().startsWith("http")) {
+        try {
+          new URL(settingsFormData.icon.trim())
+        } catch {
+          setSettingsError("图标 URL 格式不正确")
+          return
+        }
+      }
+    }
+
+    setIsSaving(true)
+    setSettingsError("")
+
+    try {
+      const updateData: UpdateAppRequest & { icon?: string } = {
+        name: settingsFormData.name.trim(),
+      }
+
+      // 如果图标有变化，添加到更新数据中
+      if (settingsFormData.icon !== undefined) {
+        updateData.icon = settingsFormData.icon.trim() || undefined
+      }
+
+      const response = await appsApi.updateApp(appId, updateData)
+
+      if (response.success && response.data) {
+        setIsSettingsDialogOpen(false)
+        // 刷新应用信息
+        const refreshResponse = await appsApi.getApp(appId)
+        if (refreshResponse.success && refreshResponse.data) {
+          setApp(refreshResponse.data)
+        }
+      } else {
+        setSettingsError(response.error?.message || "更新应用失败")
+      }
+    } catch (err) {
+      setSettingsError("更新应用失败，请稍后重试")
+      console.error("更新应用错误:", err)
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -99,7 +185,7 @@ export default function AppDetailPage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline">
+            <Button variant="outline" onClick={openSettingsDialog}>
               <Settings className="mr-2 h-4 w-4" />
               设置
             </Button>
@@ -241,6 +327,100 @@ export default function AppDetailPage() {
             </CardContent>
           </Card>
         </div>
+
+        {/* 设置对话框 */}
+        <Dialog
+          open={isSettingsDialogOpen}
+          onOpenChange={(open) => {
+            setIsSettingsDialogOpen(open)
+            if (!open) {
+              setSettingsError("")
+              if (app) {
+                setSettingsFormData({
+                  name: app.name,
+                  icon: app.icon || "",
+                })
+              }
+            }
+          }}
+        >
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>应用设置</DialogTitle>
+              <DialogDescription>
+                修改应用的基本信息
+              </DialogDescription>
+            </DialogHeader>
+            {settingsError && (
+              <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
+                {settingsError}
+              </div>
+            )}
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="settings-name">应用名称 *</Label>
+                <Input
+                  id="settings-name"
+                  value={settingsFormData.name}
+                  onChange={(e) =>
+                    setSettingsFormData({ ...settingsFormData, name: e.target.value })
+                  }
+                  placeholder="例如：我的移动应用"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  应用的显示名称
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="settings-icon">应用图标</Label>
+                <Input
+                  id="settings-icon"
+                  type="text"
+                  value={settingsFormData.icon || ""}
+                  onChange={(e) =>
+                    setSettingsFormData({ ...settingsFormData, icon: e.target.value })
+                  }
+                  placeholder="输入 emoji 或图片 URL，例如：📱 或 https://example.com/icon.png"
+                />
+                <p className="text-xs text-muted-foreground">
+                  支持 emoji 字符或图片 URL
+                </p>
+                {settingsFormData.icon && (
+                  <div className="mt-2 p-2 border rounded-md bg-muted/50">
+                    <div className="text-sm text-muted-foreground mb-1">预览：</div>
+                    <div className="text-4xl">
+                      {settingsFormData.icon.trim().startsWith("http") ? (
+                        <img
+                          src={settingsFormData.icon.trim()}
+                          alt="Icon preview"
+                          className="h-12 w-12 object-cover rounded"
+                          onError={(e) => {
+                            e.currentTarget.style.display = "none"
+                          }}
+                        />
+                      ) : (
+                        settingsFormData.icon.trim() || "📱"
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setIsSettingsDialogOpen(false)}
+                disabled={isSaving}
+              >
+                取消
+              </Button>
+              <Button onClick={handleSaveSettings} disabled={isSaving}>
+                {isSaving ? "保存中..." : "保存更改"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   )

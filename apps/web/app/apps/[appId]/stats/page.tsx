@@ -227,10 +227,12 @@ export default function StatsPage() {
                     </div>
                   </div>
                   <span className="text-2xl font-bold text-red-600">
-                    {(
-                      (stats.summary.failureCount / stats.summary.totalUpdates) *
-                      100
-                    ).toFixed(1)}
+                    {stats.summary.totalUpdates > 0
+                      ? (
+                          (stats.summary.failureCount / stats.summary.totalUpdates) *
+                          100
+                        ).toFixed(1)
+                      : "0.0"}
                     %
                   </span>
                 </div>
