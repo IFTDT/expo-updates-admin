@@ -81,8 +81,8 @@ export default function AppUsersPage() {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [search, setSearch] = useState("")
-  const [roleFilter, setRoleFilter] = useState("")
-  const [statusFilter, setStatusFilter] = useState("")
+  const [roleFilter, setRoleFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -93,8 +93,8 @@ export default function AppUsersPage() {
         page,
         limit,
         search: search || undefined,
-        role: roleFilter || undefined,
-        status: statusFilter || undefined,
+        role: roleFilter === "all" ? undefined : roleFilter,
+        status: statusFilter === "all" ? undefined : statusFilter,
       })
 
       if (response.success && response.data) {
@@ -225,7 +225,7 @@ export default function AppUsersPage() {
                     <SelectValue placeholder="筛选角色" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">所有角色</SelectItem>
+                    <SelectItem value="all">所有角色</SelectItem>
                     <SelectItem value="admin">管理员</SelectItem>
                     <SelectItem value="app_manager">应用管理员</SelectItem>
                     <SelectItem value="viewer">查看者</SelectItem>
@@ -236,7 +236,7 @@ export default function AppUsersPage() {
                     <SelectValue placeholder="筛选状态" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">所有状态</SelectItem>
+                    <SelectItem value="all">所有状态</SelectItem>
                     <SelectItem value="active">活跃</SelectItem>
                     <SelectItem value="inactive">禁用</SelectItem>
                   </SelectContent>

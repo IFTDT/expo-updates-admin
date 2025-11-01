@@ -83,9 +83,9 @@ export default function UsersPage() {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [search, setSearch] = useState("")
-  const [versionFilter, setVersionFilter] = useState("")
-  const [statusFilter, setStatusFilter] = useState("")
-  const [platformFilter, setPlatformFilter] = useState("")
+  const [versionFilter, setVersionFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [platformFilter, setPlatformFilter] = useState("all")
 
   const fetchApp = async () => {
     try {
@@ -107,9 +107,9 @@ export default function UsersPage() {
         page,
         limit,
         search: search || undefined,
-        version: versionFilter || undefined,
-        status: statusFilter as "online" | "offline" | undefined,
-        platform: platformFilter as "ios" | "android" | undefined,
+        version: versionFilter === "all" ? undefined : versionFilter,
+        status: statusFilter === "all" ? undefined : (statusFilter as "online" | "offline" | undefined),
+        platform: platformFilter === "all" ? undefined : (platformFilter as "ios" | "android" | undefined),
       })
 
       if (response.success && response.data) {
@@ -264,7 +264,7 @@ export default function UsersPage() {
                   <SelectValue placeholder="筛选版本" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">所有版本</SelectItem>
+                  <SelectItem value="all">所有版本</SelectItem>
                   {/* 这里可以动态获取版本列表 */}
                 </SelectContent>
               </Select>
@@ -273,7 +273,7 @@ export default function UsersPage() {
                   <SelectValue placeholder="筛选状态" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">所有状态</SelectItem>
+                  <SelectItem value="all">所有状态</SelectItem>
                   <SelectItem value="online">在线</SelectItem>
                   <SelectItem value="offline">离线</SelectItem>
                 </SelectContent>
@@ -283,7 +283,7 @@ export default function UsersPage() {
                   <SelectValue placeholder="筛选平台" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">所有平台</SelectItem>
+                  <SelectItem value="all">所有平台</SelectItem>
                   <SelectItem value="ios">iOS</SelectItem>
                   <SelectItem value="android">Android</SelectItem>
                 </SelectContent>

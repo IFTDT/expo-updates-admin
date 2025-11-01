@@ -77,8 +77,8 @@ export default function LogsPage() {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [search, setSearch] = useState("")
-  const [typeFilter, setTypeFilter] = useState("")
-  const [statusFilter, setStatusFilter] = useState("")
+  const [typeFilter, setTypeFilter] = useState("all")
+  const [statusFilter, setStatusFilter] = useState("all")
 
   const fetchApp = async () => {
     try {
@@ -100,8 +100,8 @@ export default function LogsPage() {
         page,
         limit,
         search: search || undefined,
-        type: typeFilter || undefined,
-        status: statusFilter as "success" | "failed" | undefined,
+        type: typeFilter === "all" ? undefined : typeFilter,
+        status: statusFilter === "all" ? undefined : (statusFilter as "success" | "failed" | undefined),
       })
 
       if (response.success && response.data) {
@@ -215,7 +215,7 @@ export default function LogsPage() {
                   <SelectValue placeholder="筛选类型" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">所有类型</SelectItem>
+                  <SelectItem value="all">所有类型</SelectItem>
                   <SelectItem value="update">更新</SelectItem>
                   <SelectItem value="rollback">回滚</SelectItem>
                   <SelectItem value="version_create">版本创建</SelectItem>
@@ -226,7 +226,7 @@ export default function LogsPage() {
                   <SelectValue placeholder="筛选状态" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">所有状态</SelectItem>
+                  <SelectItem value="all">所有状态</SelectItem>
                   <SelectItem value="success">成功</SelectItem>
                   <SelectItem value="failed">失败</SelectItem>
                 </SelectContent>

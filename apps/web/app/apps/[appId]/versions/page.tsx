@@ -88,7 +88,7 @@ export default function VersionsPage() {
   const [limit] = useState(20)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
-  const [statusFilter, setStatusFilter] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
 
   const fetchApp = async () => {
     try {
@@ -109,7 +109,7 @@ export default function VersionsPage() {
       const response = await versionsApi.getVersions(appId, {
         page,
         limit,
-        status: statusFilter as "draft" | "published" | "rolled_back" | undefined,
+        status: statusFilter === "all" ? undefined : (statusFilter as "draft" | "published" | "rolled_back" | undefined),
       })
 
       if (response.success && response.data) {
@@ -188,7 +188,7 @@ export default function VersionsPage() {
                   <SelectValue placeholder="筛选状态" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">所有状态</SelectItem>
+                  <SelectItem value="all">所有状态</SelectItem>
                   <SelectItem value="draft">草稿</SelectItem>
                   <SelectItem value="published">已发布</SelectItem>
                   <SelectItem value="rolled_back">已回滚</SelectItem>
