@@ -50,10 +50,13 @@ export default function AppsPage() {
     setError("")
 
     try {
+      // 如果搜索词太短，不发送搜索请求
+      const searchParam = search && search.trim().length >= 2 ? search.trim() : undefined
+
       const response = await appsApi.getApps({
         page,
         limit,
-        search: search || undefined,
+        search: searchParam,
         status: (status && (status === "active" || status === "inactive")) ? status as "active" | "inactive" : undefined,
       })
 
@@ -66,6 +69,7 @@ export default function AppsPage() {
       }
     } catch (err) {
       setError("网络错误，请稍后重试")
+      console.error("获取应用列表错误:", err)
     } finally {
       setLoading(false)
     }
