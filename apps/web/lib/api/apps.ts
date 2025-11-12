@@ -40,5 +40,14 @@ export const appsApi = {
   async updateApp(id: string, data: UpdateAppRequest): Promise<ApiResponse<App>> {
     return apiClient.put<App>(API_PATHS.apps.detail(id), data);
   },
+
+  /**
+   * 删除应用
+   * @param id 应用 ID
+   * @returns 删除结果，成功时 data 为 null，message 包含成功消息
+   */
+  async deleteApp(id: string): Promise<ApiResponse<null>> {
+    return apiClient.delete<null>(API_PATHS.apps.detail(id));
+  },
 };
 

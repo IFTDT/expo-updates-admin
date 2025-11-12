@@ -5,6 +5,8 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 
 import { cn } from "@workspace/ui/lib/utils"
 import { Button } from "@workspace/ui/components/button"
+import type { VariantProps } from "class-variance-authority"
+import { buttonVariants } from "@workspace/ui/components/button"
 
 function AlertDialog({
   ...props
@@ -123,14 +125,17 @@ function AlertDialogDescription({
 
 function AlertDialogAction({
   className,
+  variant,
+  size,
   ...props
-}: React.ComponentProps<typeof AlertDialogPrimitive.Action>) {
+}: React.ComponentProps<typeof AlertDialogPrimitive.Action> &
+  VariantProps<typeof buttonVariants>) {
   return (
     <AlertDialogPrimitive.Action
       data-slot="alert-dialog-action"
       asChild
     >
-      <Button className={className} {...props} />
+      <Button variant={variant} size={size} className={className} {...props} />
     </AlertDialogPrimitive.Action>
   )
 }

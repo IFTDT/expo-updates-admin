@@ -15,6 +15,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@workspace/ui/components/alert-dialog"
 import { AppLayout } from "@/components/app-layout"
 import {
   Package,
@@ -24,6 +34,7 @@ import {
   Upload,
   RotateCcw,
   Settings,
+  Trash2,
 } from "lucide-react"
 import { appsApi } from "@/lib/api"
 import type { App, UpdateAppRequest } from "@/lib/api/types"
@@ -44,6 +55,11 @@ export default function AppDetailPage() {
   })
   const [settingsError, setSettingsError] = useState("")
   const [isSaving, setIsSaving] = useState(false)
+
+  // 删除对话框状态
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState("")
 
   useEffect(() => {
     const fetchApp = async () => {
@@ -134,6 +150,37 @@ export default function AppDetailPage() {
       console.error("更新应用错误:", err)
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  // 处理删除应用
+  const handleDeleteApp = async () => {
+    if (!app || !appId) return
+
+    setIsDeleting(true)
+    setDeleteError("")
+
+    try {
+      const response = await appsApi.deleteApp(appId)
+
+      if (response.success) {
+        // 删除成功，跳转到应用列表页
+        router.push("/apps")
+      } else {
+        // 处理各种错误情况
+        const errorMessage = response.error?.message || "删除应用失败"
+        setDeleteError(errorMessage)
+
+        // 如果是权限错误，提供更详细的提示
+        if (response.error?.code === "HTTP_403" || response.error?.code?.includes("403")) {
+          setDeleteError("权限不足，无法删除该应用")
+        }
+      }
+    } catch (err) {
+      setDeleteError("删除应用失败，请稍后重试")
+      console.error("删除应用错误:", err)
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -324,6 +371,14 @@ export default function AppDetailPage() {
                   管理用户
                 </Button>
               </Link>
+              <Button
+                variant="outline"
+                className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setIsDeleteDialogOpen(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                删除应用
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -421,6 +476,47 @@ export default function AppDetailPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* 删除应用确认对话框 */}
+        <AlertDialog
+          open={isDeleteDialogOpen}
+          onOpenChange={(open) => {
+            // 如果正在删除，不允许关闭对话框
+            if (isDeleting && !open) {
+              return
+            }
+            setIsDeleteDialogOpen(open)
+            if (!open) {
+              setDeleteError("")
+            }
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认删除应用</AlertDialogTitle>
+              <AlertDialogDescription>
+                确定要删除应用 <strong>{app?.name}</strong> ({app?.appId}) 吗？
+                <br />
+                此操作将永久删除该应用及其所有版本、用户数据等，且无法撤销。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {deleteError && (
+              <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
+                {deleteError}
+              </div>
+            )}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isDeleting}>取消</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteApp}
+                disabled={isDeleting}
+                variant="destructive"
+              >
+                {isDeleting ? "删除中..." : "删除"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </AppLayout>
   )
