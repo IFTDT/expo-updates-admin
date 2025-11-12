@@ -92,7 +92,9 @@ export interface App {
 export interface Version {
   id: string;
   version: string;
+  build: string;
   name: string;
+  runtimeVersion?: string | null;
   description?: string | null;
   status: string;
   fileUrl: string;
@@ -305,12 +307,28 @@ export interface UpdateAppRequest {
 }
 
 /**
- * 创建版本请求
+ * 通过文件上传创建版本所需字段
  */
-export interface CreateVersionRequest {
+export interface CreateVersionWithFilePayload {
   version: string;
+  build: string;
+  name: string;
+  runtimeVersion: string;
+  description?: string;
+  isMandatory?: boolean;
+  publishTime?: "now" | "scheduled";
+  scheduledAt?: string;
+}
+
+/**
+ * 通过文件 URL 创建版本请求
+ */
+export interface CreateVersionByUrlRequest {
+  version: string;
+  build: string;
   name: string;
   description?: string;
+  runtimeVersion?: string;
   isMandatory?: boolean;
   fileUrl: string;
   fileSize: number;

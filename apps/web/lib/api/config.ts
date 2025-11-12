@@ -22,6 +22,7 @@ export const API_PATHS = {
     list: "/api/apps",
     detail: (id: string) => `/api/apps/${id}`,
     versions: (appId: string) => `/api/apps/${appId}/versions`,
+    versionCreateByUrl: (appId: string) => `/api/apps/${appId}/versions/by-url`,
     versionDetail: (appId: string, id: string) => `/api/apps/${appId}/versions/${id}`,
     versionPublish: (appId: string, id: string) => `/api/apps/${appId}/versions/${id}/publish`,
     versionRollback: (appId: string, id: string) => `/api/apps/${appId}/versions/${id}/rollback`,

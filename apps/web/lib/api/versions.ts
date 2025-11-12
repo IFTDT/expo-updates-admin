@@ -5,7 +5,8 @@ import type {
   Version,
   PaginatedResponse,
   VersionListParams,
-  CreateVersionRequest,
+  CreateVersionByUrlRequest,
+  CreateVersionWithFilePayload,
   PublishVersionRequest,
   RollbackVersionRequest,
 } from "./types";
@@ -32,13 +33,41 @@ export const versionsApi = {
   },
 
   /**
-   * 创建版本
+   * 上传文件创建版本
    */
-  async createVersion(
+  async createVersionWithFile(
     appId: string,
-    data: CreateVersionRequest
+    file: File,
+    data: CreateVersionWithFilePayload
   ): Promise<ApiResponse<Version>> {
-    return apiClient.post<Version>(API_PATHS.apps.versions(appId), data);
+    const additionalData: Record<string, string> = {
+      version: data.version,
+      build: data.build,
+      name: data.name,
+      runtimeVersion: data.runtimeVersion,
+      isMandatory: data.isMandatory ? "true" : "false",
+      publishTime: data.publishTime ?? "now",
+    };
+
+    if (data.description) {
+      additionalData.description = data.description;
+    }
+
+    if (data.scheduledAt) {
+      additionalData.scheduledAt = data.scheduledAt;
+    }
+
+    return apiClient.upload<Version>(API_PATHS.apps.versions(appId), file, additionalData);
+  },
+
+  /**
+   * 通过文件 URL 创建版本
+   */
+  async createVersionByUrl(
+    appId: string,
+    data: CreateVersionByUrlRequest
+  ): Promise<ApiResponse<Version>> {
+    return apiClient.post<Version>(API_PATHS.apps.versionCreateByUrl(appId), data);
   },
 
   /**

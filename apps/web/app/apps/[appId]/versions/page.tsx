@@ -213,6 +213,8 @@ export default function VersionsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>版本号</TableHead>
+                      <TableHead>构建版本</TableHead>
+                      <TableHead>运行时版本</TableHead>
                       <TableHead>版本名称</TableHead>
                       <TableHead>描述</TableHead>
                       <TableHead>状态</TableHead>
@@ -226,7 +228,7 @@ export default function VersionsPage() {
                   <TableBody>
                     {versions.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                           暂无版本数据
                         </TableCell>
                       </TableRow>
@@ -244,6 +246,8 @@ export default function VersionsPage() {
                               )}
                             </div>
                           </TableCell>
+                          <TableCell>{version.build || "-"}</TableCell>
+                          <TableCell>{version.runtimeVersion || "-"}</TableCell>
                           <TableCell>{version.name}</TableCell>
                           <TableCell className="max-w-xs truncate">
                             {version.description || "-"}

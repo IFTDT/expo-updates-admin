@@ -9,12 +9,8 @@ import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { AppLayout } from "@/components/app-layout"
-import {
-  Upload,
-  X,
-  FileUp,
-  Check,
-} from "lucide-react"
+import { API_CONFIG, versionsApi } from "@/lib/api"
+import { Upload, X, FileUp } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -32,6 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 
 interface NewVersionPageProps {
   params: Promise<{ appId: string }>
@@ -44,6 +41,24 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
   const [uploadProgress, setUploadProgress] = useState(0)
   const [isUploading, setIsUploading] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const [error, setError] = useState("")
+  const [mode, setMode] = useState<"upload" | "byUrl">("upload")
+
+  const resolveFileUrl = (url: string) => {
+    if (!url) {
+      return url
+    }
+
+    if (/^https?:\/\//i.test(url)) {
+      return url
+    }
+
+    const baseURL = API_CONFIG.baseURL.replace(/\/+$/, "")
+    const normalizedPath = url.startsWith("/") ? url : `/${url}`
+
+    console.log(`${baseURL}${normalizedPath}`)
+    return `${baseURL}${normalizedPath}`
+  }
 
   // 初始化 appId
   useEffect(() => {
@@ -52,36 +67,54 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
 
   const [formData, setFormData] = useState({
     version: "",
+    build: "",
     name: "",
     description: "",
+    runtimeVersion: "",
     isMandatory: "false",
     publishTime: "now",
     scheduledDate: "",
     scheduledTime: "",
+    fileUrl: "",
+    fileSize: "",
+    checksum: "",
   })
+
+  useEffect(() => {
+    if (mode === "byUrl") {
+      setFile(null)
+      setUploadProgress(0)
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        fileUrl: "",
+        fileSize: "",
+        checksum: "",
+      }))
+    }
+  }, [mode])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
     if (selectedFile) {
+      const lowerCaseName = selectedFile.name.toLowerCase()
       // 验证文件格式
       const validExtensions = [".tar.gz", ".zip", ".tgz"]
-      const fileExtension = selectedFile.name
-        .toLowerCase()
-        .substring(selectedFile.name.lastIndexOf("."))
 
-      if (!validExtensions.some((ext) => fileExtension.includes(ext))) {
-        alert("不支持的文件格式，请上传 .tar.gz、.zip 或 .tgz 文件")
+      if (!validExtensions.some((ext) => lowerCaseName.endsWith(ext))) {
+        setError("不支持的文件格式，请上传 .tar.gz、.zip 或 .tgz 文件")
         return
       }
 
       // 验证文件大小 (100MB)
       const maxSize = 100 * 1024 * 1024
       if (selectedFile.size > maxSize) {
-        alert("文件大小不能超过 100MB")
+        setError("文件大小不能超过 100MB")
         return
       }
 
       setFile(selectedFile)
+      setError("")
     }
   }
 
@@ -107,36 +140,141 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!file) {
-      alert("请上传更新包文件")
+    setError("")
+
+    if (!formData.version.trim()) {
+      setError("请填写版本号")
       return
     }
+
+    if (!formData.build.trim()) {
+      setError("请填写构建版本")
+      return
+    }
+
+    if (!formData.name.trim()) {
+      setError("请填写版本名称")
+      return
+    }
+
+    if (
+      formData.publishTime === "scheduled" &&
+      (!formData.scheduledDate || !formData.scheduledTime)
+    ) {
+      setError("请选择定时发布的日期和时间")
+      return
+    }
+
+    if (mode === "upload") {
+      if (!file) {
+        setError("请上传更新包文件")
+        return
+      }
+
+      if (!formData.runtimeVersion.trim()) {
+        setError("请填写运行时版本 (Runtime Version)")
+        return
+      }
+    } else {
+      if (!formData.fileUrl.trim()) {
+        setError("请填写文件地址")
+        return
+      }
+
+      const parsedSize = Number(formData.fileSize)
+      if (!formData.fileSize.trim() || Number.isNaN(parsedSize) || parsedSize <= 0) {
+        setError("请填写正确的文件大小（字节数）")
+        return
+      }
+
+      if (!formData.checksum.trim()) {
+        setError("请填写文件校验值")
+        return
+      }
+    }
+
     setShowConfirm(true)
   }
 
   const handleConfirmPublish = async () => {
+    if (!appId) {
+      setError("缺少必要信息")
+      return
+    }
+
+    if (mode === "upload" && !file) {
+      setError("请上传更新包文件")
+      return
+    }
+
     setShowConfirm(false)
     setIsUploading(true)
+    setError("")
+    setUploadProgress(0)
 
-    // 模拟上传进度
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 90) {
-          clearInterval(interval)
-          return 90
+    try {
+      let scheduledAt: string | undefined
+      if (formData.publishTime === "scheduled" && formData.scheduledDate && formData.scheduledTime) {
+        const dateTime = new Date(`${formData.scheduledDate}T${formData.scheduledTime}`)
+        if (Number.isNaN(dateTime.getTime())) {
+          setError("定时发布时间格式不正确")
+          setIsUploading(false)
+          return
         }
-        return prev + 10
-      })
-    }, 200)
+        scheduledAt = dateTime.toISOString()
+      }
 
-    // TODO: 实现实际上传逻辑
-    setTimeout(() => {
-      clearInterval(interval)
+      let createResponse
+
+      if (mode === "upload" && file) {
+        const createPayload = {
+          version: formData.version.trim(),
+          build: formData.build.trim(),
+          name: formData.name.trim(),
+          description: formData.description.trim() || undefined,
+          runtimeVersion: formData.runtimeVersion.trim(),
+          isMandatory: formData.isMandatory === "true",
+          publishTime: formData.publishTime as "now" | "scheduled",
+          scheduledAt,
+        }
+
+        setUploadProgress(25)
+        createResponse = await versionsApi.createVersionWithFile(appId, file, createPayload)
+      } else {
+        const createVersionData = {
+          version: formData.version.trim(),
+          build: formData.build.trim(),
+          name: formData.name.trim(),
+          description: formData.description.trim() || undefined,
+          runtimeVersion: formData.runtimeVersion.trim() || undefined,
+          isMandatory: formData.isMandatory === "true",
+          fileUrl: resolveFileUrl(formData.fileUrl.trim()),
+          fileSize: Number(formData.fileSize),
+          checksum: formData.checksum.trim(),
+          publishTime: formData.publishTime as "now" | "scheduled",
+          scheduledAt,
+        }
+
+        createResponse = await versionsApi.createVersionByUrl(appId, createVersionData)
+      }
+
+      if (!createResponse.success) {
+        setError(createResponse.error?.message || "创建版本失败")
+        setIsUploading(false)
+        return
+      }
+
       setUploadProgress(100)
+
+      setTimeout(() => {
+        setIsUploading(false)
+        router.push(`/apps/${appId}/versions`)
+      }, 500)
+    } catch (err) {
+      setError("发布更新失败，请稍后重试")
+      console.error("发布更新错误:", err)
       setIsUploading(false)
-      // 跳转到版本列表页
-      router.push(`/apps/${appId}/versions`)
-    }, 3000)
+    }
   }
 
   return (
@@ -154,77 +292,143 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
           </div>
         </div>
 
+        {error && (
+          <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid gap-6 md:grid-cols-2">
             {/* 左侧：文件上传 */}
             <Card>
               <CardHeader>
-                <CardTitle>更新包上传</CardTitle>
-                <CardDescription>
-                  上传应用的更新包文件（.tar.gz, .zip, .tgz）
-                </CardDescription>
+                <CardTitle>更新包来源</CardTitle>
+                <CardDescription>选择上传文件或填写文件地址</CardDescription>
               </CardHeader>
               <CardContent>
-                {!file ? (
-                  <div
-                    onDragOver={handleDragOver}
-                    onDrop={handleDrop}
-                    className="border-2 border-dashed rounded-lg p-12 text-center hover:border-primary transition-colors cursor-pointer"
-                  >
-                    <input
-                      type="file"
-                      id="file-upload"
-                      className="hidden"
-                      accept=".tar.gz,.zip,.tgz"
-                      onChange={handleFileChange}
-                    />
-                    <label htmlFor="file-upload" className="cursor-pointer">
-                      <FileUp className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                      <p className="text-sm font-medium mb-2">
-                        点击或拖拽文件到此处上传
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        支持 .tar.gz、.zip、.tgz 格式，最大 100MB
-                      </p>
-                    </label>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-4 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <FileUp className="h-5 w-5 text-primary" />
-                        <div>
-                          <p className="text-sm font-medium">{file.name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {(file.size / 1024 / 1024).toFixed(2)} MB
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={handleRemoveFile}
+                <Tabs value={mode} onValueChange={(value) => setMode(value as "upload" | "byUrl")}>
+                  <TabsList>
+                    <TabsTrigger value="upload">上传文件</TabsTrigger>
+                    <TabsTrigger value="byUrl">文件地址</TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="upload" className="mt-4 space-y-4">
+                    {!file ? (
+                      <div
+                        onDragOver={handleDragOver}
+                        onDrop={handleDrop}
+                        className="cursor-pointer rounded-lg border-2 border-dashed p-12 text-center transition-colors hover:border-primary"
                       >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    {isUploading && (
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>上传中...</span>
-                          <span>{uploadProgress}%</span>
+                        <input
+                          type="file"
+                          id="file-upload"
+                          className="hidden"
+                          accept=".tar.gz,.zip,.tgz"
+                          onChange={handleFileChange}
+                          disabled={isUploading}
+                        />
+                        <label htmlFor="file-upload" className="cursor-pointer">
+                          <FileUp className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+                          <p className="mb-2 text-sm font-medium">点击或拖拽文件到此处上传</p>
+                          <p className="text-xs text-muted-foreground">
+                            支持 .tar.gz、.zip、.tgz 格式，最大 100MB
+                          </p>
+                        </label>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between rounded-lg border p-4">
+                          <div className="flex items-center gap-3">
+                            <FileUp className="h-5 w-5 text-primary" />
+                            <div>
+                              <p className="text-sm font-medium">{file.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {(file.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={handleRemoveFile}
+                            disabled={isUploading}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
                         </div>
-                        <div className="w-full bg-secondary rounded-full h-2">
-                          <div
-                            className="bg-primary h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${uploadProgress}%` }}
-                          />
-                        </div>
+                        {isUploading && (
+                          <div className="space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span>上传中...</span>
+                              <span>{uploadProgress}%</span>
+                            </div>
+                            <div className="h-2 w-full rounded-full bg-secondary">
+                              <div
+                                className="h-2 rounded-full bg-primary transition-all duration-300"
+                                style={{ width: `${uploadProgress}%` }}
+                              />
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
+                  </TabsContent>
+
+                  <TabsContent value="byUrl" className="mt-4 space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="fileUrl">文件地址 *</Label>
+                      <Input
+                        id="fileUrl"
+                        placeholder="https://example.com/updates/app-update.tar.gz"
+                        value={formData.fileUrl}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            fileUrl: e.target.value,
+                          })
+                        }
+                        disabled={isUploading}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        支持 HTTP/HTTPS 链接，可填写相对路径
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="fileSize">文件大小 (字节) *</Label>
+                      <Input
+                        id="fileSize"
+                        type="number"
+                        min="1"
+                        placeholder="例如：10485760"
+                        value={formData.fileSize}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            fileSize: e.target.value,
+                          })
+                        }
+                        disabled={isUploading}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="checksum">文件校验值 *</Label>
+                      <Input
+                        id="checksum"
+                        placeholder="请输入文件的校验值（如 SHA256）"
+                        value={formData.checksum}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            checksum: e.target.value,
+                          })
+                        }
+                        disabled={isUploading}
+                      />
+                    </div>
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
 
@@ -245,7 +449,44 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
                       setFormData({ ...formData, version: e.target.value })
                     }
                     required
+                    disabled={isUploading}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="build">构建版本 *</Label>
+                  <Input
+                    id="build"
+                    placeholder="例如: 123"
+                    value={formData.build}
+                    onChange={(e) =>
+                      setFormData({ ...formData, build: e.target.value })
+                    }
+                    required
+                    disabled={isUploading}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    应用的构建版本号，用于标识不同的构建
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="runtimeVersion">
+                    运行时版本 (Runtime Version{mode === "upload" ? " *" : ""})
+                  </Label>
+                  <Input
+                    id="runtimeVersion"
+                    placeholder="例如: 1.0.0"
+                    value={formData.runtimeVersion}
+                    onChange={(e) =>
+                      setFormData({ ...formData, runtimeVersion: e.target.value })
+                    }
+                    required={mode === "upload"}
+                    disabled={isUploading}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Expo Updates 要求的运行时版本，用于匹配兼容的更新包
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -258,6 +499,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
                       setFormData({ ...formData, name: e.target.value })
                     }
                     required
+                    disabled={isUploading}
                   />
                 </div>
 
@@ -271,6 +513,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
                     onChange={(e) =>
                       setFormData({ ...formData, description: e.target.value })
                     }
+                    disabled={isUploading}
                   />
                 </div>
 
@@ -281,6 +524,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
                     onValueChange={(value) =>
                       setFormData({ ...formData, isMandatory: value })
                     }
+                    disabled={isUploading}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -299,6 +543,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
                     onValueChange={(value) =>
                       setFormData({ ...formData, publishTime: value })
                     }
+                    disabled={isUploading}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -324,6 +569,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
                             scheduledDate: e.target.value,
                           })
                         }
+                        disabled={isUploading}
                       />
                     </div>
                     <div className="space-y-2">
@@ -338,6 +584,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
                             scheduledTime: e.target.value,
                           })
                         }
+                        disabled={isUploading}
                       />
                     </div>
                   </div>
@@ -349,11 +596,11 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
           {/* Actions */}
           <div className="flex justify-end gap-4">
             <Link href={`/apps/${appId}/versions`}>
-              <Button type="button" variant="outline">
+              <Button type="button" variant="outline" disabled={isUploading}>
                 取消
               </Button>
             </Link>
-            <Button type="submit" disabled={isUploading}>
+            <Button type="submit" disabled={isUploading || (mode === "upload" && !file)}>
               <Upload className="mr-2 h-4 w-4" />
               {isUploading ? "发布中..." : "发布更新"}
             </Button>
@@ -367,7 +614,13 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>确认发布更新</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要发布版本 {formData.version} 吗？此操作会将更新推送给所有用户。
+              确定要发布版本 <strong>{formData.version}</strong> 吗？
+              <br />
+              构建版本: <strong>{formData.build || "未填写"}</strong>
+              <br />
+              运行时版本: <strong>{formData.runtimeVersion || "未填写"}</strong>
+              <br />
+              此操作会将更新推送给所有用户。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
