@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useParams } from "next/navigation"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
@@ -44,6 +44,19 @@ import {
 import { userGroupsApi, appsApi } from "@/lib/api"
 import type { UserGroup, App } from "@/lib/api/types"
 
+const formatDateTime = (value?: string | null) => {
+  if (!value) {
+    return "-"
+  }
+  try {
+    return new Date(value).toLocaleString("zh-CN", {
+      hour12: false,
+    })
+  } catch (error) {
+    return value
+  }
+}
+
 export default function UserGroupsPage() {
   const params = useParams()
   const appId = params.appId as string
@@ -55,24 +68,35 @@ export default function UserGroupsPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [editingGroup, setEditingGroup] = useState<UserGroup | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const [formData, setFormData] = useState({
     name: "",
     description: "",
   })
 
-  const fetchApp = async () => {
+  const fetchApp = useCallback(async () => {
+    if (!appId) {
+      return
+    }
     try {
       const response = await appsApi.getApp(appId)
       if (response.success && response.data) {
         setApp(response.data)
+      } else {
+        setError(response.error?.message || "应用信息获取失败")
       }
     } catch (err) {
       console.error("Failed to fetch app:", err)
+      setError("加载应用信息失败，请稍后重试")
     }
-  }
+  }, [appId])
 
-  const fetchGroups = async () => {
+  const fetchGroups = useCallback(async () => {
+    if (!appId) {
+      return
+    }
+
     setLoading(true)
     setError("")
 
@@ -82,7 +106,7 @@ export default function UserGroupsPage() {
       })
 
       if (response.success && response.data) {
-        setGroups(response.data.items)
+        setGroups(response.data.items ?? [])
       } else {
         setError(response.error?.message || "获取分组列表失败")
       }
@@ -91,19 +115,23 @@ export default function UserGroupsPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  useEffect(() => {
-    if (appId) {
-      fetchApp()
-    }
-  }, [appId])
-
-  useEffect(() => {
-    if (appId) {
-      fetchGroups()
-    }
   }, [appId, searchQuery])
+
+  useEffect(() => {
+    fetchApp()
+  }, [fetchApp])
+
+  useEffect(() => {
+    if (!appId) {
+      return
+    }
+
+    const handler = setTimeout(() => {
+      fetchGroups()
+    }, 300)
+
+    return () => clearTimeout(handler)
+  }, [appId, fetchGroups])
 
   const handleCreate = () => {
     setFormData({ name: "", description: "" })
@@ -124,7 +152,7 @@ export default function UserGroupsPage() {
       try {
         const response = await userGroupsApi.deleteUserGroup(appId, groupId)
         if (response.success) {
-          fetchGroups()
+          await fetchGroups()
         } else {
           alert(response.error?.message || "删除失败")
         }
@@ -135,6 +163,11 @@ export default function UserGroupsPage() {
   }
 
   const handleSave = async () => {
+    if (!formData.name.trim()) {
+      return
+    }
+
+    setIsSubmitting(true)
     try {
       if (editingGroup) {
         // 编辑
@@ -145,7 +178,7 @@ export default function UserGroupsPage() {
         if (response.success) {
           setIsEditDialogOpen(false)
           setEditingGroup(null)
-          fetchGroups()
+          await fetchGroups()
         } else {
           alert(response.error?.message || "更新失败")
         }
@@ -157,7 +190,7 @@ export default function UserGroupsPage() {
         })
         if (response.success) {
           setIsCreateDialogOpen(false)
-          fetchGroups()
+          await fetchGroups()
         } else {
           alert(response.error?.message || "创建失败")
         }
@@ -165,14 +198,10 @@ export default function UserGroupsPage() {
       setFormData({ name: "", description: "" })
     } catch (err) {
       alert("网络错误，请稍后重试")
+    } finally {
+      setIsSubmitting(false)
     }
   }
-
-  const filteredGroups = groups.filter(
-    (group) =>
-      group.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (group.description || "").toLowerCase().includes(searchQuery.toLowerCase())
-  )
 
   if (!app) {
     return (
@@ -199,7 +228,16 @@ export default function UserGroupsPage() {
               </p>
             </div>
           </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+          <Dialog
+            open={isCreateDialogOpen}
+            onOpenChange={(open) => {
+              setIsCreateDialogOpen(open)
+              if (!open) {
+                setFormData({ name: "", description: "" })
+                setIsSubmitting(false)
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button onClick={handleCreate}>
                 <Plus className="mr-2 h-4 w-4" />
@@ -243,11 +281,12 @@ export default function UserGroupsPage() {
                 <Button
                   variant="outline"
                   onClick={() => setIsCreateDialogOpen(false)}
+                  disabled={isSubmitting}
                 >
                   取消
                 </Button>
-                <Button onClick={handleSave} disabled={!formData.name}>
-                  创建分组
+                <Button onClick={handleSave} disabled={!formData.name || isSubmitting}>
+                  {isSubmitting ? "创建中..." : "创建分组"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -255,7 +294,17 @@ export default function UserGroupsPage() {
         </div>
 
         {/* Edit Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <Dialog
+          open={isEditDialogOpen}
+          onOpenChange={(open) => {
+            setIsEditDialogOpen(open)
+            if (!open) {
+              setEditingGroup(null)
+              setFormData({ name: "", description: "" })
+              setIsSubmitting(false)
+            }
+          }}
+        >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>编辑用户分组</DialogTitle>
@@ -294,11 +343,12 @@ export default function UserGroupsPage() {
                   setIsEditDialogOpen(false)
                   setEditingGroup(null)
                 }}
+                disabled={isSubmitting}
               >
                 取消
               </Button>
-              <Button onClick={handleSave} disabled={!formData.name}>
-                保存修改
+              <Button onClick={handleSave} disabled={!formData.name || isSubmitting}>
+                {isSubmitting ? "保存中..." : "保存修改"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -311,7 +361,7 @@ export default function UserGroupsPage() {
               <div>
                 <CardTitle>分组列表</CardTitle>
                 <CardDescription>
-                  共 {filteredGroups.length} 个分组
+                  共 {groups.length} 个分组
                 </CardDescription>
               </div>
               <div className="relative w-64">
@@ -349,14 +399,14 @@ export default function UserGroupsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredGroups.length === 0 ? (
+                  {groups.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                         {searchQuery ? "未找到匹配的分组" : "暂无分组，点击右上角创建"}
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredGroups.map((group) => (
+                    groups.map((group) => (
                       <TableRow key={group.id}>
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
@@ -368,15 +418,11 @@ export default function UserGroupsPage() {
                           {group.description || "-"}
                         </TableCell>
                         <TableCell>
-                          <span className="font-medium">{group.userCount}</span>{" "}
+                          <span className="font-medium">{group.userCount?.toLocaleString?.() ?? 0}</span>{" "}
                           用户
                         </TableCell>
-                        <TableCell>
-                          {new Date(group.createdAt).toLocaleDateString("zh-CN")}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(group.updatedAt).toLocaleDateString("zh-CN")}
-                        </TableCell>
+                        <TableCell>{formatDateTime(group.createdAt)}</TableCell>
+                        <TableCell>{formatDateTime(group.updatedAt)}</TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -389,7 +435,11 @@ export default function UserGroupsPage() {
                                 <Edit className="mr-2 h-4 w-4" />
                                 编辑
                               </DropdownMenuItem>
-                              <DropdownMenuItem>管理用户</DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/apps/${appId}/users/groups/${group.id}/manage`}>
+                                  管理用户
+                                </Link>
+                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 className="text-destructive"
