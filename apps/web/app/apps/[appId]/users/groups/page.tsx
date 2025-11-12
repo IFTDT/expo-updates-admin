@@ -16,6 +16,7 @@ import {
   Trash2,
   MoreVertical,
   Search,
+  Package,
 } from "lucide-react"
 import {
   Table,
@@ -437,7 +438,14 @@ export default function UserGroupsPage() {
                               </DropdownMenuItem>
                               <DropdownMenuItem asChild>
                                 <Link href={`/apps/${appId}/users/groups/${group.id}/manage`}>
+                                  <Users className="mr-2 h-4 w-4" />
                                   管理用户
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/apps/${appId}/users/groups/${group.id}/version`}>
+                                  <Package className="mr-2 h-4 w-4" />
+                                  选择更新版本
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />

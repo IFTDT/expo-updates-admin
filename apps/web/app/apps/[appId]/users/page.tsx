@@ -16,6 +16,7 @@ import {
   RefreshCw,
   Smartphone,
   Monitor,
+  Package,
 } from "lucide-react"
 import {
   Table,
@@ -366,18 +367,11 @@ export default function UsersPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
-                                  <RefreshCw className="mr-2 h-4 w-4" />
-                                  更新到最新版本
-                                </DropdownMenuItem>
-                                <DropdownMenuItem>
-                                  <RefreshCw className="mr-2 h-4 w-4" />
-                                  回滚版本
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem>
-                                  <Download className="mr-2 h-4 w-4" />
-                                  导出信息
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/apps/${appId}/users/${user.id}/version`}>
+                                    <Package className="mr-2 h-4 w-4" />
+                                    更新到指定版本
+                                  </Link>
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
