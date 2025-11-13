@@ -12,10 +12,11 @@ import {
   RotateCcw,
   Package,
   CheckCircle2,
-  XCircle,
   Clock,
   Download,
   MoreVertical,
+  Trash2,
+  Loader2,
 } from "lucide-react"
 import {
   Table,
@@ -31,6 +32,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@workspace/ui/components/alert-dialog"
 import {
   Select,
   SelectContent,
@@ -77,6 +88,11 @@ function getStatusBadge(status: string) {
   }
 }
 
+type ActionMessage = {
+  type: "success" | "error"
+  message: string
+}
+
 export default function VersionsPage() {
   const params = useParams()
   const appId = params.appId as string
@@ -89,6 +105,11 @@ export default function VersionsPage() {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [statusFilter, setStatusFilter] = useState("all")
+  const [actionMessage, setActionMessage] = useState<ActionMessage | null>(null)
+  const [downloadingVersionId, setDownloadingVersionId] = useState<string | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [selectedVersionForDelete, setSelectedVersionForDelete] = useState<Version | null>(null)
+  const [deletingVersionId, setDeletingVersionId] = useState<string | null>(null)
 
   const fetchApp = async () => {
     try {
@@ -137,6 +158,100 @@ export default function VersionsPage() {
       fetchVersions()
     }
   }, [appId, page, statusFilter])
+
+  const handleDownload = async (version: Version) => {
+    if (!version.fileUrl) {
+      setActionMessage({
+        type: "error",
+        message: "该版本没有可下载的文件",
+      })
+      return
+    }
+
+    setDownloadingVersionId(version.id)
+    setActionMessage(null)
+
+    try {
+      const blob = await versionsApi.downloadVersionFile(version.fileUrl)
+      const urlWithoutQuery = version.fileUrl.split(/[?#]/)[0]
+      const guessedFileName = urlWithoutQuery.substring(urlWithoutQuery.lastIndexOf("/") + 1)
+      const sanitizedAppName = (app?.name ?? "app").replace(/\s+/g, "-")
+      const fallbackFileName =
+        guessedFileName && guessedFileName.length > 0
+          ? guessedFileName
+          : `${sanitizedAppName}-${version.version || version.id}.tar.gz`
+      const blobUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = blobUrl
+      link.download = fallbackFileName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(blobUrl)
+
+      setActionMessage({
+        type: "success",
+        message: `已开始下载版本 ${version.version} 的更新包`,
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "下载失败，请稍后重试"
+      console.error("下载更新包失败:", err)
+      setActionMessage({
+        type: "error",
+        message,
+      })
+    } finally {
+      setDownloadingVersionId(null)
+    }
+  }
+
+  const handleDeleteMenuSelect = (version: Version) => {
+    setSelectedVersionForDelete(version)
+    setShowDeleteDialog(true)
+  }
+
+  const handleDeleteDialogOpenChange = (open: boolean) => {
+    if (!open && deletingVersionId !== null) {
+      return
+    }
+    setShowDeleteDialog(open)
+    if (!open) {
+      setSelectedVersionForDelete(null)
+    }
+  }
+
+  const handleDeleteVersion = async () => {
+    if (!selectedVersionForDelete) {
+      return
+    }
+
+    setDeletingVersionId(selectedVersionForDelete.id)
+    setActionMessage(null)
+
+    try {
+      const response = await versionsApi.deleteVersion(appId, selectedVersionForDelete.id)
+      if (response.success) {
+        setActionMessage({
+          type: "success",
+          message: `版本 ${selectedVersionForDelete.version} 已删除`,
+        })
+        setShowDeleteDialog(false)
+        setSelectedVersionForDelete(null)
+        await fetchVersions()
+      } else {
+        throw new Error(response.error?.message || "删除版本失败")
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "删除版本失败，请稍后重试"
+      console.error("删除版本失败:", err)
+      setActionMessage({
+        type: "error",
+        message,
+      })
+    } finally {
+      setDeletingVersionId(null)
+    }
+  }
 
   if (!app) {
     return (
@@ -200,6 +315,17 @@ export default function VersionsPage() {
             {error && (
               <div className="mb-4 text-sm text-destructive bg-destructive/10 p-2 rounded">
                 {error}
+              </div>
+            )}
+            {actionMessage && (
+              <div
+                className={`mb-4 rounded border px-3 py-2 text-sm ${
+                  actionMessage.type === "success"
+                    ? "border-green-200 bg-green-50 text-green-700 dark:border-green-900/40 dark:bg-green-950/40 dark:text-green-300"
+                    : "border-destructive bg-destructive/10 text-destructive"
+                }`}
+              >
+                {actionMessage.message}
               </div>
             )}
 
@@ -289,14 +415,24 @@ export default function VersionsPage() {
                                 </Button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
-                                <DropdownMenuItem>
-                                  <Download className="mr-2 h-4 w-4" />
-                                  下载更新包
+                                <DropdownMenuItem
+                                  onSelect={() => handleDownload(version)}
+                                  disabled={downloadingVersionId === version.id}
+                                >
+                                  {downloadingVersionId === version.id ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Download className="mr-2 h-4 w-4" />
+                                  )}
+                                  {downloadingVersionId === version.id ? "下载中..." : "下载更新包"}
                                 </DropdownMenuItem>
                                 {version.status === "published" && (
-                                  <DropdownMenuItem>
-                                    <RotateCcw className="mr-2 h-4 w-4" />
-                                    回滚版本
+                                  <DropdownMenuItem
+                                    className="text-destructive focus:text-destructive data-[highlighted]:bg-destructive/10 data-[highlighted]:text-destructive"
+                                    onSelect={() => handleDeleteMenuSelect(version)}
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    删除版本
                                   </DropdownMenuItem>
                                 )}
                                 {version.status === "draft" && (
@@ -330,6 +466,37 @@ export default function VersionsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={handleDeleteDialogOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除版本</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除版本{" "}
+              <strong>{selectedVersionForDelete?.version ?? "该"}</strong>{" "}
+              吗？此操作不可恢复，相关更新包将无法继续下载。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingVersionId !== null}>取消</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleDeleteVersion}
+              disabled={deletingVersionId !== null}
+              className="gap-2"
+            >
+              {deletingVersionId ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  删除中...
+                </>
+              ) : (
+                "确认删除"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   )
 }

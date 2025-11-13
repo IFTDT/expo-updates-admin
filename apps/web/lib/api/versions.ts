@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import { API_PATHS } from "./config";
+import { API_CONFIG, API_PATHS } from "./config";
 import type {
   ApiResponse,
   Version,
@@ -103,6 +103,43 @@ export const versionsApi = {
       API_PATHS.apps.versionRollback(appId, id),
       data
     );
+  },
+
+  /**
+   * 下载版本文件
+   */
+  async downloadVersionFile(fileUrl: string): Promise<Blob> {
+    if (!fileUrl) {
+      throw new Error("文件下载地址不存在");
+    }
+
+    const normalizePath = (path: string) => (path.startsWith("/") ? path : `/${path}`);
+    const baseUrl = API_CONFIG.baseURL.replace(/\/+$/, "");
+
+    // 相对路径，直接通过 API 客户端下载
+    if (!/^https?:\/\//i.test(fileUrl)) {
+      return apiClient.download(normalizePath(fileUrl));
+    }
+
+    // 绝对路径且与当前 API 基础地址相同，转换为相对路径以复用认证
+    if (fileUrl.startsWith(baseUrl)) {
+      const relativePath = fileUrl.slice(baseUrl.length);
+      return apiClient.download(normalizePath(relativePath));
+    }
+
+    // 绝对路径且为外部地址，手动发起请求并附带认证信息
+    const headers: Record<string, string> = {};
+    const token = apiClient.getAccessToken();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await fetch(fileUrl, { headers });
+    if (!response.ok) {
+      throw new Error(`下载失败: ${response.statusText}`);
+    }
+
+    return response.blob();
   },
 };
 
