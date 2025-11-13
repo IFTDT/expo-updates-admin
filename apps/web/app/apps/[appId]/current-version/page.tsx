@@ -12,7 +12,6 @@ import {
   CheckCircle2,
   Clock,
   Loader2,
-  Rocket,
   Search,
 } from "lucide-react"
 import {
@@ -25,8 +24,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
-import { appsApi, appUsersApi, versionsApi } from "@/lib/api"
-import type { App, AppUser, Version } from "@/lib/api/types"
+import { appsApi, versionsApi } from "@/lib/api"
+import type { App, Version } from "@/lib/api/types"
 
 const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return "0 B"
@@ -61,20 +60,18 @@ const getStatusBadge = (status: string) => {
   }
 }
 
-export default function UserVersionPage() {
+export default function AppCurrentVersionPage() {
   const params = useParams()
   const router = useRouter()
   const appId = params.appId as string
-  const userId = params.userId as string
 
   const [app, setApp] = useState<App | null>(null)
-  const [user, setUser] = useState<AppUser | null>(null)
   const [versions, setVersions] = useState<Version[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedVersionId, setSelectedVersionId] = useState<string>("")
-  const [isPublishing, setIsPublishing] = useState(false)
+  const [isSetting, setIsSetting] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
   const fetchApp = useCallback(async () => {
@@ -89,20 +86,6 @@ export default function UserVersionPage() {
     }
   }, [appId])
 
-  const fetchUser = useCallback(async () => {
-    if (!appId || !userId) return
-    try {
-      const response = await appUsersApi.getAppUser(appId, userId)
-      if (response.success && response.data) {
-        setUser(response.data)
-      } else {
-        setError(response.error?.message || "获取用户信息失败")
-      }
-    } catch (error) {
-      setError("获取用户信息失败，请稍后重试")
-    }
-  }, [appId, userId])
-
   const fetchVersions = useCallback(async () => {
     if (!appId) return
 
@@ -110,20 +93,27 @@ export default function UserVersionPage() {
     setError("")
 
     try {
+      // 如果有搜索关键词，搜索所有版本；否则只获取最新的10个
+      const hasSearch = searchQuery && searchQuery.trim().length > 0
       const response = await versionsApi.getVersions(appId, {
         page: 1,
-        limit: 20,
+        limit: hasSearch ? 100 : 10, // 搜索时获取更多，默认只获取10个
         status: "published",
-        search: searchQuery || undefined,
+        search: hasSearch ? searchQuery.trim() : undefined,
       })
 
       if (response.success && response.data) {
         setVersions(response.data.items ?? [])
       } else {
-        setError(response.error?.message || "获取版本列表失败")
+        const errorMessage = response.error?.message || "获取版本列表失败"
+        setError(errorMessage)
+        setVersions([])
       }
-    } catch (error) {
-      setError("获取版本列表失败，请稍后重试")
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "获取版本列表失败，请稍后重试"
+      setError(errorMessage)
+      setVersions([])
+      console.error("获取版本列表错误:", err)
     } finally {
       setLoading(false)
     }
@@ -134,10 +124,6 @@ export default function UserVersionPage() {
   }, [fetchApp])
 
   useEffect(() => {
-    fetchUser()
-  }, [fetchUser])
-
-  useEffect(() => {
     const handler = setTimeout(() => {
       fetchVersions()
     }, 300)
@@ -145,30 +131,30 @@ export default function UserVersionPage() {
     return () => clearTimeout(handler)
   }, [fetchVersions])
 
-  const handleSetTargetVersion = async () => {
-    if (!appId || !userId || !selectedVersionId) {
+  const handleSetCurrentVersion = async () => {
+    if (!appId || !selectedVersionId) {
       setError("请选择要设置的版本")
       return
     }
 
-    setIsPublishing(true)
+    setIsSetting(true)
     setError("")
 
     try {
-      const response = await appUsersApi.setTargetVersion(appId, userId, {
+      const response = await appsApi.setCurrentVersion(appId, {
         versionId: selectedVersionId,
       })
 
       if (response.success) {
         setShowConfirmDialog(false)
-        router.push(`/apps/${appId}/users`)
+        router.push(`/apps/${appId}`)
       } else {
-        setError(response.error?.message || "设置目标版本失败")
+        setError(response.error?.message || "设置当前版本失败")
       }
     } catch (error) {
-      setError("设置目标版本失败，请稍后重试")
+      setError("设置当前版本失败，请稍后重试")
     } finally {
-      setIsPublishing(false)
+      setIsSetting(false)
     }
   }
 
@@ -179,17 +165,17 @@ export default function UserVersionPage() {
       <div className="space-y-6">
         {/* Navigation Bar */}
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" onClick={() => router.push(`/apps/${appId}/users`)}>
-            <ArrowLeft className="mr-1 h-4 w-4" /> 返回用户列表
+          <Button variant="ghost" size="sm" onClick={() => router.push(`/apps/${appId}`)}>
+            <ArrowLeft className="mr-1 h-4 w-4" /> 返回应用详情
           </Button>
         </div>
 
         {/* Header Info */}
         <div className="space-y-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">选择目标版本</h1>
+            <h1 className="text-3xl font-bold tracking-tight">选择当前版本</h1>
             <p className="text-muted-foreground mt-1">
-              为用户选择目标版本，该版本将设置为用户的目标版本
+              为应用选择当前版本，该版本将作为应用的默认版本
             </p>
           </div>
 
@@ -205,22 +191,10 @@ export default function UserVersionPage() {
                   <span className="text-muted-foreground">App ID：</span>
                   <span className="font-medium">{app.appId}</span>
                 </div>
-              </>
-            )}
-            {user && (
-              <>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">用户 ID：</span>
-                  <span className="font-medium">{user.userId || "-"}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-muted-foreground">设备 ID：</span>
-                  <span className="font-medium">{user.deviceId}</span>
-                </div>
-                {user.currentVersion && (
+                {app.currentVersion && (
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">当前版本：</span>
-                    <span className="font-medium">{user.currentVersion}</span>
+                    <span className="font-medium">{app.currentVersion}</span>
                   </div>
                 )}
               </>
@@ -242,7 +216,12 @@ export default function UserVersionPage() {
                 <Package className="h-5 w-5" /> 选择版本
               </CardTitle>
               <CardDescription>
-                从已发布的版本中选择一个作为用户的目标版本
+                从已发布的版本中选择一个作为应用的当前版本
+                {!searchQuery && versions.length > 0 && (
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    （显示最新 {versions.length} 个版本，输入关键词可搜索全部版本）
+                  </span>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -318,7 +297,7 @@ export default function UserVersionPage() {
           <Card>
             <CardHeader>
               <CardTitle>操作</CardTitle>
-              <CardDescription>确认设置目标版本</CardDescription>
+              <CardDescription>确认设置当前版本</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {selectedVersion ? (
@@ -365,13 +344,13 @@ export default function UserVersionPage() {
                   </div>
                   <div className="space-y-2 text-sm pt-2 border-t">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">目标用户：</span>
-                      <span className="font-medium">{user?.userId || user?.deviceId || "-"}</span>
+                      <span className="text-muted-foreground">应用名称：</span>
+                      <span className="font-medium">{app?.name ?? "-"}</span>
                     </div>
-                    {user?.currentVersion && (
+                    {app?.currentVersion && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">当前版本：</span>
-                        <span className="font-medium">{user.currentVersion}</span>
+                        <span className="font-medium">{app.currentVersion}</span>
                       </div>
                     )}
                   </div>
@@ -384,10 +363,9 @@ export default function UserVersionPage() {
               <Button
                 className="w-full"
                 onClick={() => setShowConfirmDialog(true)}
-                disabled={!selectedVersionId || isPublishing || loading}
+                disabled={!selectedVersionId || isSetting || loading}
               >
-                <Rocket className="mr-2 h-4 w-4" />
-                设置目标版本
+                设置当前版本
               </Button>
             </CardContent>
           </Card>
@@ -398,20 +376,20 @@ export default function UserVersionPage() {
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认设置目标版本</AlertDialogTitle>
+            <AlertDialogTitle>确认设置当前版本</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要将版本 <strong>{selectedVersion?.version}</strong> 设置为用户{" "}
-              <strong>{user?.userId || user?.deviceId || "-"}</strong> 的目标版本吗？
+              确定要将版本 <strong>{selectedVersion?.version}</strong> 设置为应用{" "}
+              <strong>{app?.name}</strong> 的当前版本吗？
               <br />
               <br />
-              此操作将直接设置用户的目标版本，用户将在下次检查更新时收到此版本。
+              此操作将更新应用的当前版本，影响所有使用该应用的用户。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isPublishing}>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handleSetTargetVersion} disabled={isPublishing}>
-              {isPublishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isPublishing ? "设置中..." : "确认设置"}
+            <AlertDialogCancel disabled={isSetting}>取消</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSetCurrentVersion} disabled={isSetting}>
+              {isSetting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSetting ? "设置中..." : "确认设置"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

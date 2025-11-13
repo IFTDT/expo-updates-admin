@@ -7,6 +7,8 @@ import type {
   AppListParams,
   CreateAppRequest,
   UpdateAppRequest,
+  SetAppCurrentVersionRequest,
+  SetVersionResponse,
 } from "./types";
 
 /**
@@ -48,6 +50,19 @@ export const appsApi = {
    */
   async deleteApp(id: string): Promise<ApiResponse<null>> {
     return apiClient.delete<null>(API_PATHS.apps.detail(id));
+  },
+
+  /**
+   * 设置应用当前版本
+   * @param id 应用 ID
+   * @param data 设置版本请求
+   * @returns 设置结果
+   */
+  async setCurrentVersion(
+    id: string,
+    data: SetAppCurrentVersionRequest
+  ): Promise<ApiResponse<SetVersionResponse>> {
+    return apiClient.put<SetVersionResponse>(API_PATHS.apps.appCurrentVersion(id), data);
   },
 };
 

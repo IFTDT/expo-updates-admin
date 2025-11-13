@@ -8,6 +8,8 @@ import type {
   UpdateUserVersionRequest,
   BatchUpdateUsersRequest,
   RollbackVersionRequest,
+  SetUserTargetVersionRequest,
+  SetVersionResponse,
 } from "./types";
 
 /**
@@ -90,6 +92,21 @@ export const appUsersApi = {
       API_PATHS.apps.userRollback(appId, id),
       data
     );
+  },
+
+  /**
+   * 设置用户目标版本
+   * @param appId 应用 ID
+   * @param id 用户 ID
+   * @param data 设置版本请求
+   * @returns 设置结果
+   */
+  async setTargetVersion(
+    appId: string,
+    id: string,
+    data: SetUserTargetVersionRequest
+  ): Promise<ApiResponse<SetVersionResponse>> {
+    return apiClient.put<SetVersionResponse>(API_PATHS.apps.userTargetVersion(appId, id), data);
   },
 };
 

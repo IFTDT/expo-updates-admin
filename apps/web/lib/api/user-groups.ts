@@ -6,6 +6,8 @@ import type {
   CreateUserGroupRequest,
   UpdateUserGroupRequest,
   ListQueryParams,
+  SetUserGroupTargetVersionRequest,
+  SetVersionResponse,
 } from "./types";
 
 /**
@@ -83,6 +85,21 @@ export const userGroupsApi = {
       API_PATHS.apps.userGroupUsers(appId, id),
       { userIds }
     );
+  },
+
+  /**
+   * 设置用户组目标版本
+   * @param appId 应用 ID
+   * @param id 用户组 ID
+   * @param data 设置版本请求
+   * @returns 设置结果
+   */
+  async setTargetVersion(
+    appId: string,
+    id: string,
+    data: SetUserGroupTargetVersionRequest
+  ): Promise<ApiResponse<SetVersionResponse>> {
+    return apiClient.put<SetVersionResponse>(API_PATHS.apps.userGroupTargetVersion(appId, id), data);
   },
 };
 

@@ -424,3 +424,34 @@ export interface UpdatePlatformUserRequest {
   appIds?: string[];
 }
 
+/**
+ * 设置应用当前版本请求
+ */
+export interface SetAppCurrentVersionRequest {
+  versionId: string;
+}
+
+/**
+ * 设置用户组目标版本请求
+ */
+export interface SetUserGroupTargetVersionRequest {
+  versionId: string;
+}
+
+/**
+ * 设置用户目标版本请求
+ */
+export interface SetUserTargetVersionRequest {
+  versionId: string;
+}
+
+/**
+ * 设置版本响应
+ */
+export interface SetVersionResponse {
+  id: string;
+  currentVersionId?: string | null;
+  targetVersionId?: string | null;
+  updatedAt: string;
+}
+

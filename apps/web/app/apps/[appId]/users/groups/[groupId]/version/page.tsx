@@ -6,7 +6,6 @@ import { AppLayout } from "@/components/app-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import { Label } from "@workspace/ui/components/label"
 import {
   ArrowLeft,
   Package,
@@ -84,7 +83,6 @@ export default function GroupVersionPage() {
   const [error, setError] = useState("")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedVersionId, setSelectedVersionId] = useState<string>("")
-  const [isMandatory, setIsMandatory] = useState(false)
   const [isPublishing, setIsPublishing] = useState(false)
   const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
@@ -156,9 +154,9 @@ export default function GroupVersionPage() {
     return () => clearTimeout(handler)
   }, [fetchVersions])
 
-  const handlePublish = async () => {
+  const handleSetTargetVersion = async () => {
     if (!appId || !groupId || !selectedVersionId) {
-      setError("请选择要发布的版本")
+      setError("请选择要设置的版本")
       return
     }
 
@@ -166,34 +164,24 @@ export default function GroupVersionPage() {
     setError("")
 
     try {
-      const response = await versionsApi.publishVersion(appId, selectedVersionId, {
-        type: "targeted",
-        targetGroupIds: [groupId],
-        targetUserIds: [],
-        scheduledAt: null,
+      const response = await userGroupsApi.setTargetVersion(appId, groupId, {
+        versionId: selectedVersionId,
       })
 
       if (response.success) {
         setShowConfirmDialog(false)
         router.push(`/apps/${appId}/users/groups`)
       } else {
-        setError(response.error?.message || "发布版本失败")
+        setError(response.error?.message || "设置目标版本失败")
       }
     } catch (error) {
-      setError("发布版本失败，请稍后重试")
+      setError("设置目标版本失败，请稍后重试")
     } finally {
       setIsPublishing(false)
     }
   }
 
   const selectedVersion = versions.find((v) => v.id === selectedVersionId)
-
-  // 当选择版本时，同步强制更新状态
-  useEffect(() => {
-    if (selectedVersion) {
-      setIsMandatory(selectedVersion.isMandatory)
-    }
-  }, [selectedVersion])
 
   return (
     <AppLayout>
@@ -208,9 +196,9 @@ export default function GroupVersionPage() {
         {/* Header Info */}
         <div className="space-y-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">选择更新版本</h1>
+            <h1 className="text-3xl font-bold tracking-tight">选择目标版本</h1>
             <p className="text-muted-foreground mt-1">
-              为分组选择要发布的版本，该版本将推送给分组内的所有用户
+              为分组选择目标版本，该版本将设置为分组的目标版本
             </p>
           </div>
 
@@ -257,7 +245,7 @@ export default function GroupVersionPage() {
                 <Package className="h-5 w-5" /> 选择版本
               </CardTitle>
               <CardDescription>
-                从已发布的版本中选择一个推送给当前分组
+                从已发布的版本中选择一个作为分组的目标版本
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -333,7 +321,7 @@ export default function GroupVersionPage() {
           <Card>
             <CardHeader>
               <CardTitle>操作</CardTitle>
-              <CardDescription>确认发布版本到分组</CardDescription>
+              <CardDescription>确认设置目标版本</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {selectedVersion ? (
@@ -388,32 +376,10 @@ export default function GroupVersionPage() {
                       <span className="font-medium">{group?.userCount ?? 0} 人</span>
                     </div>
                   </div>
-
-                  {/* 是否强制更新选项 */}
-                  <div className="space-y-2 pt-2 border-t">
-                    <Label htmlFor="is-mandatory" className="text-sm font-medium">
-                      是否强制更新
-                    </Label>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="is-mandatory"
-                        checked={isMandatory}
-                        onChange={(e) => setIsMandatory(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                      />
-                      <label htmlFor="is-mandatory" className="text-sm text-muted-foreground cursor-pointer">
-                        强制用户更新到此版本
-                      </label>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      开启后，用户必须更新到此版本才能继续使用应用
-                    </p>
-                  </div>
                 </>
               ) : (
                 <div className="text-sm text-muted-foreground text-center py-8">
-                  请从左侧选择要发布的版本
+                  请从左侧选择要设置的版本
                 </div>
               )}
               <Button
@@ -422,7 +388,7 @@ export default function GroupVersionPage() {
                 disabled={!selectedVersionId || isPublishing || loading}
               >
                 <Rocket className="mr-2 h-4 w-4" />
-                发布版本
+                设置目标版本
               </Button>
             </CardContent>
           </Card>
@@ -433,27 +399,23 @@ export default function GroupVersionPage() {
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认发布版本</AlertDialogTitle>
+            <AlertDialogTitle>确认设置目标版本</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要将版本 <strong>{selectedVersion?.version}</strong> 发布到分组{" "}
-              <strong>{group?.name}</strong> 吗？
+              确定要将版本 <strong>{selectedVersion?.version}</strong> 设置为分组{" "}
+              <strong>{group?.name}</strong> 的目标版本吗？
               <br />
-              <br />
-              发布类型：<strong>定向发布（仅推送给当前分组）</strong>
-              <br />
-              强制更新：<strong>{isMandatory ? "是" : "否"}</strong>
               <br />
               影响用户：<strong>{group?.userCount ?? 0}</strong> 人
               <br />
               <br />
-              此操作将创建发布任务，版本将推送给目标用户。
+              此操作将直接设置分组的目标版本，分组内的用户将在下次检查更新时收到此版本。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isPublishing}>取消</AlertDialogCancel>
-            <AlertDialogAction onClick={handlePublish} disabled={isPublishing}>
+            <AlertDialogAction onClick={handleSetTargetVersion} disabled={isPublishing}>
               {isPublishing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isPublishing ? "发布中..." : "确认发布"}
+              {isPublishing ? "设置中..." : "确认设置"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

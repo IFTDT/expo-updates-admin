@@ -256,9 +256,20 @@ export default function AppDetailPage() {
               <div className="text-2xl font-bold">
                 {app.currentVersion || "-"}
               </div>
-              <p className="text-xs text-muted-foreground">
-                已发布 {app.versions || 0} 个版本
-              </p>
+              <div className="flex items-center justify-between mt-2">
+                <p className="text-xs text-muted-foreground">
+                  已发布 {app.versions || 0} 个版本
+                </p>
+                <Link href={`/apps/${appId}/current-version`}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 px-3 text-xs"
+                  >
+                    选择版本
+                  </Button>
+                </Link>
+              </div>
             </CardContent>
           </Card>
           <Card>
@@ -517,6 +528,7 @@ export default function AppDetailPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
       </div>
     </AppLayout>
   )
