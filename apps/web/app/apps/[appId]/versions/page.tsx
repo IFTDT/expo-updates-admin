@@ -307,6 +307,7 @@ export default function VersionsPage() {
                       <TableHead>版本名称</TableHead>
                       <TableHead>描述</TableHead>
                       <TableHead>文件大小</TableHead>
+                      <TableHead>用户数</TableHead>
                       <TableHead>发布时间</TableHead>
                       <TableHead>发布人</TableHead>
                       <TableHead className="text-right">操作</TableHead>
@@ -316,7 +317,7 @@ export default function VersionsPage() {
                     {versions.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={10}
+                          colSpan={11}
                           className="text-center py-8 text-muted-foreground"
                         >
                           暂无版本数据
@@ -339,6 +340,9 @@ export default function VersionsPage() {
                           </TableCell>
                           <TableCell>
                             {formatFileSize(version.fileSize)}
+                          </TableCell>
+                          <TableCell>
+                            {version.userCount ?? 0}
                           </TableCell>
                           <TableCell>
                             {version.publishedAt ? (
