@@ -92,8 +92,6 @@ export default function StatsPage() {
     )
   }
 
-  const maxCount = Math.max(...stats.updateTimeline.map((i) => i.count), 1)
-
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -236,74 +234,6 @@ export default function StatsPage() {
                     %
                   </span>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Update Timeline */}
-          <Card>
-            <CardHeader>
-              <CardTitle>更新时间分布</CardTitle>
-              <CardDescription>最近更新时间统计</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {stats.updateTimeline.map((item) => (
-                  <div key={item.date} className="flex items-center gap-4">
-                    <div className="w-24 text-sm text-muted-foreground">
-                      {new Date(item.date).toLocaleDateString("zh-CN", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </div>
-                    <div className="flex-1">
-                      <div className="w-full bg-secondary rounded-full h-4 relative">
-                        <div
-                          className="bg-primary h-4 rounded-full transition-all flex items-center justify-end pr-2"
-                          style={{
-                            width: `${(item.count / maxCount) * 100}%`,
-                          }}
-                        >
-                          <span className="text-xs font-medium text-primary-foreground">
-                            {item.count}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Failure Reasons */}
-          <Card>
-            <CardHeader>
-              <CardTitle>失败原因分析</CardTitle>
-              <CardDescription>更新失败的原因统计</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {stats.failureReasons.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">暂无失败记录</p>
-                ) : (
-                  stats.failureReasons.map((item, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 border rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium">{item.reason}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {item.count} 次
-                        </p>
-                      </div>
-                      <div className="text-2xl font-bold text-red-600">
-                        {item.count}
-                      </div>
-                    </div>
-                  ))
-                )}
               </div>
             </CardContent>
           </Card>

@@ -5085,6 +5085,12 @@
                               "version": {
                                 "type": "string"
                               },
+                              "build": {
+                                "type": "string"
+                              },
+                              "runtimeVersion": {
+                                "type": "string"
+                              },
                               "count": {
                                 "type": "number"
                               },
@@ -5094,6 +5100,8 @@
                             },
                             "required": [
                               "version",
+                              "build",
+                              "runtimeVersion",
                               "count",
                               "percentage"
                             ]
@@ -5197,6 +5205,12 @@
                           "version": {
                             "type": "string"
                           },
+                          "build": {
+                            "type": "string"
+                          },
+                          "runtimeVersion": {
+                            "type": "string"
+                          },
                           "count": {
                             "type": "number"
                           },
@@ -5206,6 +5220,8 @@
                         },
                         "required": [
                           "version",
+                          "build",
+                          "runtimeVersion",
                           "count",
                           "percentage"
                         ]

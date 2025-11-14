@@ -5,6 +5,13 @@ import { useParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@workspace/ui/components/dialog"
 import { AppLayout } from "@/components/app-layout"
 import { Pagination } from "@/components/pagination"
 import {
@@ -17,6 +24,7 @@ import {
   RotateCcw,
   Package,
   Users,
+  Eye,
 } from "lucide-react"
 import {
   Table,
@@ -77,8 +85,9 @@ export default function LogsPage() {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [search, setSearch] = useState("")
-  const [typeFilter, setTypeFilter] = useState("all")
   const [statusFilter, setStatusFilter] = useState("all")
+  const [selectedLog, setSelectedLog] = useState<Log | null>(null)
+  const [isDetailDialogOpen, setIsDetailDialogOpen] = useState(false)
 
   const fetchApp = async () => {
     try {
@@ -100,7 +109,6 @@ export default function LogsPage() {
         page,
         limit,
         search: search || undefined,
-        type: typeFilter === "all" ? undefined : typeFilter,
         status: statusFilter === "all" ? undefined : (statusFilter as "success" | "failed" | undefined),
       })
 
@@ -145,7 +153,7 @@ export default function LogsPage() {
     if (appId) {
       fetchLogs()
     }
-  }, [appId, page, typeFilter, statusFilter])
+  }, [appId, page, statusFilter])
 
   // 搜索防抖
   useEffect(() => {
@@ -210,17 +218,6 @@ export default function LogsPage() {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <Select value={typeFilter} onValueChange={setTypeFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="筛选类型" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">所有类型</SelectItem>
-                  <SelectItem value="update">更新</SelectItem>
-                  <SelectItem value="rollback">回滚</SelectItem>
-                  <SelectItem value="version_create">版本创建</SelectItem>
-                </SelectContent>
-              </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="筛选状态" />
@@ -286,7 +283,15 @@ export default function LogsPage() {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="sm">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedLog(log)
+                                setIsDetailDialogOpen(true)
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
                               查看详情
                             </Button>
                           </TableCell>
@@ -309,6 +314,111 @@ export default function LogsPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* 日志详情对话框 */}
+        <Dialog open={isDetailDialogOpen} onOpenChange={setIsDetailDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>操作日志详情</DialogTitle>
+              <DialogDescription>
+                查看操作日志的完整信息
+              </DialogDescription>
+            </DialogHeader>
+            {selectedLog && (
+              <div className="space-y-4 py-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      操作类型
+                    </label>
+                    <div className="mt-1 flex items-center gap-2">
+                      {getActionIcon(selectedLog.type)}
+                      <span className="capitalize">{selectedLog.type}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      状态
+                    </label>
+                    <div className="mt-1">{getStatusBadge(selectedLog.status)}</div>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      操作描述
+                    </label>
+                    <p className="mt-1 text-sm">{selectedLog.action}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      操作人
+                    </label>
+                    <p className="mt-1 text-sm">
+                      {selectedLog.user?.name || selectedLog.userId}
+                    </p>
+                  </div>
+                  {selectedLog.targetId && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        目标 ID
+                      </label>
+                      <p className="mt-1 text-sm font-mono text-xs">
+                        {selectedLog.targetId}
+                      </p>
+                    </div>
+                  )}
+                  {selectedLog.targetType && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        目标类型
+                      </label>
+                      <p className="mt-1 text-sm">{selectedLog.targetType}</p>
+                    </div>
+                  )}
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      操作时间
+                    </label>
+                    <div className="mt-1 space-y-1">
+                      <p className="text-sm">
+                        {new Date(selectedLog.createdAt).toLocaleString("zh-CN", {
+                          year: "numeric",
+                          month: "long",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(selectedLog.createdAt).toISOString()}
+                      </p>
+                    </div>
+                  </div>
+                  {selectedLog.user?.email && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        操作人邮箱
+                      </label>
+                      <p className="mt-1 text-sm">{selectedLog.user.email}</p>
+                    </div>
+                  )}
+                </div>
+                {selectedLog.details && Object.keys(selectedLog.details).length > 0 && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      详细信息
+                    </label>
+                    <div className="mt-2 rounded-md bg-muted p-4">
+                      <pre className="text-xs overflow-x-auto">
+                        {JSON.stringify(selectedLog.details, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AppLayout>
   )
