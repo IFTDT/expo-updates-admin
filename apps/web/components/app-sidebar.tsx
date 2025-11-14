@@ -194,64 +194,61 @@ export function AppSidebar({ className }: SidebarProps) {
 
           <Separator className="border-sidebar-border" />
 
-          {/* User menu */}
-          <div className="p-4">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    "w-full justify-start gap-3",
-                    isCollapsed && "justify-center px-2"
-                  )}
+          {/* User menu and Collapse button */}
+          <div className="hidden border-t border-sidebar-border p-4 lg:flex lg:items-center lg:gap-2">
+            <div className="flex-1">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      "w-full justify-start gap-3",
+                      isCollapsed && "justify-center px-2"
+                    )}
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user?.avatar || "/avatar.png"} alt="User" />
+                      <AvatarFallback>
+                        {user?.name?.charAt(0).toUpperCase() || "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    {!isCollapsed && (
+                      <>
+                        <div className="flex flex-col items-start">
+                          <span className="text-sm font-medium">{user?.name || "用户名"}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {user?.email || "user@example.com"}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  className="w-56"
+                  side={isCollapsed ? "right" : "bottom"}
                 >
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.avatar || "/avatar.png"} alt="User" />
-                    <AvatarFallback>
-                      {user?.name?.charAt(0).toUpperCase() || "U"}
-                    </AvatarFallback>
-                  </Avatar>
-                  {!isCollapsed && (
-                    <>
-                      <div className="flex flex-col items-start">
-                        <span className="text-sm font-medium">{user?.name || "用户名"}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {user?.email || "user@example.com"}
-                        </span>
-                      </div>
-                    </>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-56"
-                side={isCollapsed ? "right" : "bottom"}
-              >
-                <DropdownMenuLabel>我的账户</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>设置</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={() => logout()}
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>退出登录</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {/* Collapse button */}
-          <div className="hidden border-t border-sidebar-border p-4 lg:block">
+                  <DropdownMenuLabel>我的账户</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>设置</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={() => logout()}
+                  >
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>退出登录</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
             <Button
               variant="ghost"
               size="icon"
-              className="w-full"
               onClick={() => setIsCollapsed(!isCollapsed)}
             >
               {isCollapsed ? (
