@@ -1,23 +1,31 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
-import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { AppLayout } from "@/components/app-layout"
-import { Pagination } from "@/components/pagination"
+import { AppLayout } from "@/components/app-layout";
+import { Pagination } from "@/components/pagination";
+import { appUsersApi, appsApi } from "@/lib/api";
+import type { App, AppUser } from "@/lib/api/types";
+import { Button } from "@workspace/ui/components/button";
 import {
-  Users,
-  Search,
-  MoreVertical,
-  Download,
-  RefreshCw,
-  Smartphone,
-  Monitor,
-  Package,
-} from "lucide-react"
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu";
+import { Input } from "@workspace/ui/components/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select";
 import {
   Table,
   TableBody,
@@ -25,83 +33,65 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@workspace/ui/components/table"
+} from "@workspace/ui/components/table";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
-import { appUsersApi, appsApi } from "@/lib/api"
-import type { AppUser, App } from "@/lib/api/types"
-
-function getStatusBadge(status: string) {
-  return status === "online" ? (
-    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-900 dark:text-green-300">
-      <span className="h-1.5 w-1.5 rounded-full bg-green-600"></span>
-      在线
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800 dark:bg-gray-900 dark:text-gray-300">
-      <span className="h-1.5 w-1.5 rounded-full bg-gray-600"></span>
-      离线
-    </span>
-  )
-}
+  Monitor,
+  MoreVertical,
+  Package,
+  RefreshCw,
+  Search,
+  Smartphone,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 function getPlatformIcon(platform?: string) {
-  if (!platform) return null
+  if (!platform) return null;
   return platform.toLowerCase() === "ios" ? (
     <Smartphone className="h-4 w-4 text-blue-600" />
   ) : (
     <Monitor className="h-4 w-4 text-green-600" />
-  )
+  );
 }
 
 export default function UsersPage() {
-  const params = useParams()
-  const appId = params.appId as string
-  const [app, setApp] = useState<App | null>(null)
-  const [users, setUsers] = useState<AppUser[]>([])
+  const params = useParams();
+  const appId = params.appId as string;
+  const [app, setApp] = useState<App | null>(null);
+  const [users, setUsers] = useState<AppUser[]>([]);
   const [stats, setStats] = useState({
     total: 0,
     online: 0,
     offline: 0,
     versions: 0,
-  })
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [page, setPage] = useState(1)
-  const [limit] = useState(20)
-  const [total, setTotal] = useState(0)
-  const [totalPages, setTotalPages] = useState(0)
-  const [search, setSearch] = useState("")
-  const [versionFilter, setVersionFilter] = useState("all")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [platformFilter, setPlatformFilter] = useState("all")
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit] = useState(20);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [search, setSearch] = useState("");
+  const [versionFilter, setVersionFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [platformFilter, setPlatformFilter] = useState("all");
 
   const fetchApp = async () => {
     try {
-      const response = await appsApi.getApp(appId)
+      const response = await appsApi.getApp(appId);
       if (response.success && response.data) {
-        setApp(response.data)
+        setApp(response.data);
       }
     } catch (err) {
-      console.error("Failed to fetch app:", err)
+      console.error("Failed to fetch app:", err);
     }
-  }
+  };
 
   const fetchUsers = async () => {
-    setLoading(true)
-    setError("")
+    setLoading(true);
+    setError("");
 
     try {
       const response = await appUsersApi.getAppUsers(appId, {
@@ -109,51 +99,57 @@ export default function UsersPage() {
         limit,
         search: search || undefined,
         version: versionFilter === "all" ? undefined : versionFilter,
-        status: statusFilter === "all" ? undefined : (statusFilter as "online" | "offline" | undefined),
-        platform: platformFilter === "all" ? undefined : (platformFilter as "ios" | "android" | undefined),
-      })
+        status:
+          statusFilter === "all"
+            ? undefined
+            : (statusFilter as "online" | "offline" | undefined),
+        platform:
+          platformFilter === "all"
+            ? undefined
+            : (platformFilter as "ios" | "android" | undefined),
+      });
 
       if (response.success && response.data) {
-        setUsers(response.data.items)
-        setTotal(response.data.pagination.total)
-        setTotalPages(response.data.pagination.totalPages)
+        setUsers(response.data.items);
+        setTotal(response.data.pagination.total);
+        setTotalPages(response.data.pagination.totalPages);
         if (response.data.stats) {
-          setStats(response.data.stats)
+          setStats(response.data.stats);
         }
       } else {
-        setError(response.error?.message || "获取用户列表失败")
+        setError(response.error?.message || "获取用户列表失败");
       }
     } catch (err) {
-      setError("网络错误，请稍后重试")
+      setError("网络错误，请稍后重试");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
     if (appId) {
-      fetchApp()
+      fetchApp();
     }
-  }, [appId])
+  }, [appId]);
 
   useEffect(() => {
     if (appId) {
-      fetchUsers()
+      fetchUsers();
     }
-  }, [appId, page, versionFilter, statusFilter, platformFilter])
+  }, [appId, page, versionFilter, statusFilter, platformFilter]);
 
   // 搜索防抖
   useEffect(() => {
     const timer = setTimeout(() => {
       if (page === 1) {
-        fetchUsers()
+        fetchUsers();
       } else {
-        setPage(1)
+        setPage(1);
       }
-    }, 500)
+    }, 500);
 
-    return () => clearTimeout(timer)
-  }, [search])
+    return () => clearTimeout(timer);
+  }, [search]);
 
   if (!app) {
     return (
@@ -162,13 +158,13 @@ export default function UsersPage() {
           <p className="text-muted-foreground">加载中...</p>
         </div>
       </AppLayout>
-    )
+    );
   }
 
   const deviceInfoPlatform = (deviceInfo?: Record<string, unknown>) => {
-    if (!deviceInfo) return undefined
-    return (deviceInfo.platform as string) || undefined
-  }
+    if (!deviceInfo) return undefined;
+    return (deviceInfo.platform as string) || undefined;
+  };
 
   return (
     <AppLayout>
@@ -180,9 +176,7 @@ export default function UsersPage() {
               <h1 className="text-3xl font-bold tracking-tight">
                 {app.name} - 用户管理
               </h1>
-              <p className="text-muted-foreground mt-1">
-                查看和管理应用的用户
-              </p>
+              <p className="text-muted-foreground mt-1">查看和管理应用的用户</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -192,10 +186,6 @@ export default function UsersPage() {
                 用户分组
               </Button>
             </Link>
-            <Button variant="outline">
-              <Download className="mr-2 h-4 w-4" />
-              导出
-            </Button>
           </div>
         </div>
 
@@ -208,26 +198,6 @@ export default function UsersPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stats.total}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">在线用户</CardTitle>
-              <span className="h-2 w-2 rounded-full bg-green-600"></span>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-green-600">
-                {stats.online}
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">离线用户</CardTitle>
-              <span className="h-2 w-2 rounded-full bg-gray-600"></span>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.offline}</div>
             </CardContent>
           </Card>
           <Card>
@@ -245,9 +215,7 @@ export default function UsersPage() {
         <Card>
           <CardHeader>
             <CardTitle>用户列表</CardTitle>
-            <CardDescription>
-              共 {total} 个用户，其中 {stats.online} 个在线
-            </CardDescription>
+            <CardDescription>共 {total} 个用户</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-4 mb-4">
@@ -260,25 +228,6 @@ export default function UsersPage() {
                   onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
-              <Select value={versionFilter} onValueChange={setVersionFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="筛选版本" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">所有版本</SelectItem>
-                  {/* 这里可以动态获取版本列表 */}
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="筛选状态" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">所有状态</SelectItem>
-                  <SelectItem value="online">在线</SelectItem>
-                  <SelectItem value="offline">离线</SelectItem>
-                </SelectContent>
-              </Select>
               <Select value={platformFilter} onValueChange={setPlatformFilter}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="筛选平台" />
@@ -310,7 +259,6 @@ export default function UsersPage() {
                       <TableHead>设备 ID</TableHead>
                       <TableHead>平台</TableHead>
                       <TableHead>当前版本</TableHead>
-                      <TableHead>状态</TableHead>
                       <TableHead>最后更新</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
@@ -318,7 +266,10 @@ export default function UsersPage() {
                   <TableBody>
                     {users.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                        <TableCell
+                          colSpan={7}
+                          className="text-center py-8 text-muted-foreground"
+                        >
                           暂无用户数据
                         </TableCell>
                       </TableRow>
@@ -331,28 +282,36 @@ export default function UsersPage() {
                           <TableCell className="text-muted-foreground font-mono text-sm">
                             {user.deviceId}
                           </TableCell>
+                          <TableCell>{user.platform}</TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              {getPlatformIcon(deviceInfoPlatform(user.deviceInfo))}
-                              <span className="capitalize">
-                                {deviceInfoPlatform(user.deviceInfo) || "-"}
-                              </span>
-                            </div>
+                            {user.currentVersion ? (
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <Package className="h-3 w-3 text-muted-foreground" />
+                                  <span className="font-medium">
+                                    {user.currentVersion.version}<span className="text-xs text-muted-foreground space-y-0.5">(运行时: {user.currentVersion.runtimeVersion})</span>
+                                  </span>
+                                </div>
+                                <div className="text-xs text-muted-foreground space-y-0.5">
+                                  <div>构建: {user.currentVersion.build}</div>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
                           </TableCell>
-                          <TableCell>
-                            <span className="font-medium">
-                              {user.currentVersion || "-"}
-                            </span>
-                          </TableCell>
-                          <TableCell>{getStatusBadge(user.status)}</TableCell>
                           <TableCell>
                             {user.lastUpdateAt ? (
                               <div className="space-y-1">
                                 <div>
-                                  {new Date(user.lastUpdateAt).toLocaleDateString("zh-CN")}
+                                  {new Date(
+                                    user.lastUpdateAt,
+                                  ).toLocaleDateString("zh-CN")}
                                 </div>
                                 <div className="text-xs text-muted-foreground">
-                                  {new Date(user.lastUpdateAt).toLocaleTimeString("zh-CN")}
+                                  {new Date(
+                                    user.lastUpdateAt,
+                                  ).toLocaleTimeString("zh-CN")}
                                 </div>
                               </div>
                             ) : (
@@ -368,7 +327,9 @@ export default function UsersPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem asChild>
-                                  <Link href={`/apps/${appId}/users/${user.id}/version`}>
+                                  <Link
+                                    href={`/apps/${appId}/users/${user.id}/version`}
+                                  >
                                     <Package className="mr-2 h-4 w-4" />
                                     更新到指定版本
                                   </Link>
@@ -397,5 +358,5 @@ export default function UsersPage() {
         </Card>
       </div>
     </AppLayout>
-  )
+  );
 }

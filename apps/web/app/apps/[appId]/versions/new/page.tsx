@@ -517,43 +517,6 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="isMandatory">更新类型</Label>
-                  <Select
-                    value={formData.isMandatory}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, isMandatory: value })
-                    }
-                    disabled={isUploading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="false">可选更新</SelectItem>
-                      <SelectItem value="true">强制更新</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="publishTime">发布时间</Label>
-                  <Select
-                    value={formData.publishTime}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, publishTime: value })
-                    }
-                    disabled={isUploading}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="now">立即发布</SelectItem>
-                      <SelectItem value="scheduled">定时发布</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
 
                 {formData.publishTime === "scheduled" && (
                   <div className="grid gap-4 grid-cols-2">

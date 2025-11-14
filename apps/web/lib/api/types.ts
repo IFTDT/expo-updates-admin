@@ -144,7 +144,13 @@ export interface AppUser {
   id: string;
   deviceId: string;
   userId?: string | null;
-  currentVersion?: string | null;
+  platform?: string | null;
+  currentVersion?: {
+    id: string;
+    version: string;
+    build: string;
+    runtimeVersion: string;
+  } | null;
   lastUpdateAt?: string | null;
   deviceInfo?: Record<string, unknown>;
   status: string;
@@ -454,4 +460,3 @@ export interface SetVersionResponse {
   targetVersionId?: string | null;
   updatedAt: string;
 }
-

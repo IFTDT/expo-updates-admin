@@ -264,11 +264,6 @@ export default function AppCurrentVersionPage() {
                               <div className="flex items-center gap-2">
                                 <Package className="h-4 w-4 text-muted-foreground" />
                                 <span className="font-medium">{version.version}</span>
-                                {version.isMandatory && (
-                                  <span className="rounded-full bg-orange-100 px-1.5 py-0.5 text-xs font-medium text-orange-800 dark:bg-orange-900 dark:text-orange-300">
-                                    强制
-                                  </span>
-                                )}
                                 {isSelected && (
                                   <CheckCircle2 className="h-4 w-4 text-primary" />
                                 )}

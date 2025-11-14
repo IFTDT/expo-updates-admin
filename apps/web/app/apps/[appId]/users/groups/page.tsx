@@ -1,38 +1,16 @@
-"use client"
+"use client";
 
-import { useState, useEffect, useCallback } from "react"
-import { useParams } from "next/navigation"
-import Link from "next/link"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { Label } from "@workspace/ui/components/label"
-import { Textarea } from "@workspace/ui/components/textarea"
-import { AppLayout } from "@/components/app-layout"
+import { AppLayout } from "@/components/app-layout";
+import { appsApi, userGroupsApi } from "@/lib/api";
+import type { App, UserGroup } from "@/lib/api/types";
+import { Button } from "@workspace/ui/components/button";
 import {
-  Users,
-  Plus,
-  Edit,
-  Trash2,
-  MoreVertical,
-  Search,
-  Package,
-} from "lucide-react"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@workspace/ui/components/table"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card";
 import {
   Dialog,
   DialogContent,
@@ -41,168 +19,200 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@workspace/ui/components/dialog"
-import { userGroupsApi, appsApi } from "@/lib/api"
-import type { UserGroup, App } from "@/lib/api/types"
+} from "@workspace/ui/components/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu";
+import { Input } from "@workspace/ui/components/input";
+import { Label } from "@workspace/ui/components/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@workspace/ui/components/table";
+import { Textarea } from "@workspace/ui/components/textarea";
+import {
+  Edit,
+  MoreVertical,
+  Package,
+  Plus,
+  Search,
+  Trash2,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 const formatDateTime = (value?: string | null) => {
   if (!value) {
-    return "-"
+    return "-";
   }
   try {
     return new Date(value).toLocaleString("zh-CN", {
       hour12: false,
-    })
+    });
   } catch (error) {
-    return value
+    return value;
   }
-}
+};
 
 export default function UserGroupsPage() {
-  const params = useParams()
-  const appId = params.appId as string
-  const [app, setApp] = useState<App | null>(null)
-  const [groups, setGroups] = useState<UserGroup[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editingGroup, setEditingGroup] = useState<UserGroup | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const params = useParams();
+  const appId = params.appId as string;
+  const [app, setApp] = useState<App | null>(null);
+  const [groups, setGroups] = useState<UserGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<UserGroup | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
     description: "",
-  })
+  });
 
   const fetchApp = useCallback(async () => {
     if (!appId) {
-      return
+      return;
     }
     try {
-      const response = await appsApi.getApp(appId)
+      const response = await appsApi.getApp(appId);
       if (response.success && response.data) {
-        setApp(response.data)
+        setApp(response.data);
       } else {
-        setError(response.error?.message || "应用信息获取失败")
+        setError(response.error?.message || "应用信息获取失败");
       }
     } catch (err) {
-      console.error("Failed to fetch app:", err)
-      setError("加载应用信息失败，请稍后重试")
+      console.error("Failed to fetch app:", err);
+      setError("加载应用信息失败，请稍后重试");
     }
-  }, [appId])
+  }, [appId]);
 
   const fetchGroups = useCallback(async () => {
     if (!appId) {
-      return
+      return;
     }
 
-    setLoading(true)
-    setError("")
+    setLoading(true);
+    setError("");
 
     try {
       const response = await userGroupsApi.getUserGroups(appId, {
         search: searchQuery || undefined,
-      })
+      });
 
       if (response.success && response.data) {
-        setGroups(response.data.items ?? [])
+        setGroups(response.data.items ?? []);
       } else {
-        setError(response.error?.message || "获取分组列表失败")
+        setError(response.error?.message || "获取分组列表失败");
       }
     } catch (err) {
-      setError("网络错误，请稍后重试")
+      setError("网络错误，请稍后重试");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [appId, searchQuery])
+  }, [appId, searchQuery]);
 
   useEffect(() => {
-    fetchApp()
-  }, [fetchApp])
+    fetchApp();
+  }, [fetchApp]);
 
   useEffect(() => {
     if (!appId) {
-      return
+      return;
     }
 
     const handler = setTimeout(() => {
-      fetchGroups()
-    }, 300)
+      fetchGroups();
+    }, 300);
 
-    return () => clearTimeout(handler)
-  }, [appId, fetchGroups])
+    return () => clearTimeout(handler);
+  }, [appId, fetchGroups]);
 
   const handleCreate = () => {
-    setFormData({ name: "", description: "" })
-    setIsCreateDialogOpen(true)
-  }
+    setFormData({ name: "", description: "" });
+    setIsCreateDialogOpen(true);
+  };
 
   const handleEdit = (group: UserGroup) => {
-    setEditingGroup(group)
+    setEditingGroup(group);
     setFormData({
       name: group.name,
       description: group.description || "",
-    })
-    setIsEditDialogOpen(true)
-  }
+    });
+    setIsEditDialogOpen(true);
+  };
 
   const handleDelete = async (groupId: string) => {
     if (confirm("确定要删除这个分组吗？")) {
       try {
-        const response = await userGroupsApi.deleteUserGroup(appId, groupId)
+        const response = await userGroupsApi.deleteUserGroup(appId, groupId);
         if (response.success) {
-          await fetchGroups()
+          await fetchGroups();
         } else {
-          alert(response.error?.message || "删除失败")
+          alert(response.error?.message || "删除失败");
         }
       } catch (err) {
-        alert("网络错误，请稍后重试")
+        alert("网络错误，请稍后重试");
       }
     }
-  }
+  };
 
   const handleSave = async () => {
     if (!formData.name.trim()) {
-      return
+      return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
       if (editingGroup) {
         // 编辑
-        const response = await userGroupsApi.updateUserGroup(appId, editingGroup.id, {
-          name: formData.name,
-          description: formData.description,
-        })
+        const response = await userGroupsApi.updateUserGroup(
+          appId,
+          editingGroup.id,
+          {
+            name: formData.name,
+            description: formData.description,
+          },
+        );
         if (response.success) {
-          setIsEditDialogOpen(false)
-          setEditingGroup(null)
-          await fetchGroups()
+          setIsEditDialogOpen(false);
+          setEditingGroup(null);
+          await fetchGroups();
         } else {
-          alert(response.error?.message || "更新失败")
+          alert(response.error?.message || "更新失败");
         }
       } else {
         // 新建
         const response = await userGroupsApi.createUserGroup(appId, {
           name: formData.name,
           description: formData.description,
-        })
+        });
         if (response.success) {
-          setIsCreateDialogOpen(false)
-          await fetchGroups()
+          setIsCreateDialogOpen(false);
+          await fetchGroups();
         } else {
-          alert(response.error?.message || "创建失败")
+          alert(response.error?.message || "创建失败");
         }
       }
-      setFormData({ name: "", description: "" })
+      setFormData({ name: "", description: "" });
     } catch (err) {
-      alert("网络错误，请稍后重试")
+      alert("网络错误，请稍后重试");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   if (!app) {
     return (
@@ -211,7 +221,7 @@ export default function UserGroupsPage() {
           <p className="text-muted-foreground">加载中...</p>
         </div>
       </AppLayout>
-    )
+    );
   }
 
   return (
@@ -232,10 +242,10 @@ export default function UserGroupsPage() {
           <Dialog
             open={isCreateDialogOpen}
             onOpenChange={(open) => {
-              setIsCreateDialogOpen(open)
+              setIsCreateDialogOpen(open);
               if (!open) {
-                setFormData({ name: "", description: "" })
-                setIsSubmitting(false)
+                setFormData({ name: "", description: "" });
+                setIsSubmitting(false);
               }
             }}
           >
@@ -286,7 +296,10 @@ export default function UserGroupsPage() {
                 >
                   取消
                 </Button>
-                <Button onClick={handleSave} disabled={!formData.name || isSubmitting}>
+                <Button
+                  onClick={handleSave}
+                  disabled={!formData.name || isSubmitting}
+                >
                   {isSubmitting ? "创建中..." : "创建分组"}
                 </Button>
               </DialogFooter>
@@ -298,20 +311,18 @@ export default function UserGroupsPage() {
         <Dialog
           open={isEditDialogOpen}
           onOpenChange={(open) => {
-            setIsEditDialogOpen(open)
+            setIsEditDialogOpen(open);
             if (!open) {
-              setEditingGroup(null)
-              setFormData({ name: "", description: "" })
-              setIsSubmitting(false)
+              setEditingGroup(null);
+              setFormData({ name: "", description: "" });
+              setIsSubmitting(false);
             }
           }}
         >
           <DialogContent>
             <DialogHeader>
               <DialogTitle>编辑用户分组</DialogTitle>
-              <DialogDescription>
-                修改分组名称和描述
-              </DialogDescription>
+              <DialogDescription>修改分组名称和描述</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -341,14 +352,17 @@ export default function UserGroupsPage() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  setIsEditDialogOpen(false)
-                  setEditingGroup(null)
+                  setIsEditDialogOpen(false);
+                  setEditingGroup(null);
                 }}
                 disabled={isSubmitting}
               >
                 取消
               </Button>
-              <Button onClick={handleSave} disabled={!formData.name || isSubmitting}>
+              <Button
+                onClick={handleSave}
+                disabled={!formData.name || isSubmitting}
+              >
                 {isSubmitting ? "保存中..." : "保存修改"}
               </Button>
             </DialogFooter>
@@ -361,9 +375,7 @@ export default function UserGroupsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>分组列表</CardTitle>
-                <CardDescription>
-                  共 {groups.length} 个分组
-                </CardDescription>
+                <CardDescription>共 {groups.length} 个分组</CardDescription>
               </div>
               <div className="relative w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -402,8 +414,13 @@ export default function UserGroupsPage() {
                 <TableBody>
                   {groups.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                        {searchQuery ? "未找到匹配的分组" : "暂无分组，点击右上角创建"}
+                      <TableCell
+                        colSpan={6}
+                        className="text-center py-8 text-muted-foreground"
+                      >
+                        {searchQuery
+                          ? "未找到匹配的分组"
+                          : "暂无分组，点击右上角创建"}
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -419,8 +436,10 @@ export default function UserGroupsPage() {
                           {group.description || "-"}
                         </TableCell>
                         <TableCell>
-                          <span className="font-medium">{group.userCount?.toLocaleString?.() ?? 0}</span>{" "}
-                          用户
+                          <span className="font-medium">
+                            {group.userCount?.toLocaleString?.() ?? 0}
+                          </span>{" "}
+                          个用户
                         </TableCell>
                         <TableCell>{formatDateTime(group.createdAt)}</TableCell>
                         <TableCell>{formatDateTime(group.updatedAt)}</TableCell>
@@ -432,18 +451,24 @@ export default function UserGroupsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleEdit(group)}>
+                              <DropdownMenuItem
+                                onClick={() => handleEdit(group)}
+                              >
                                 <Edit className="mr-2 h-4 w-4" />
                                 编辑
                               </DropdownMenuItem>
                               <DropdownMenuItem asChild>
-                                <Link href={`/apps/${appId}/users/groups/${group.id}/manage`}>
+                                <Link
+                                  href={`/apps/${appId}/users/groups/${group.id}/manage`}
+                                >
                                   <Users className="mr-2 h-4 w-4" />
                                   管理用户
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem asChild>
-                                <Link href={`/apps/${appId}/users/groups/${group.id}/version`}>
+                                <Link
+                                  href={`/apps/${appId}/users/groups/${group.id}/version`}
+                                >
                                   <Package className="mr-2 h-4 w-4" />
                                   选择更新版本
                                 </Link>
@@ -469,5 +494,5 @@ export default function UserGroupsPage() {
         </Card>
       </div>
     </AppLayout>
-  )
+  );
 }

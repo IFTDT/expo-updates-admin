@@ -1,20 +1,8 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { useParams, useRouter } from "next/navigation"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { Label } from "@workspace/ui/components/label"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@workspace/ui/components/dialog"
+import { AppLayout } from "@/components/app-layout";
+import { appsApi } from "@/lib/api";
+import type { App, UpdateAppRequest } from "@/lib/api/types";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,67 +12,86 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@workspace/ui/components/alert-dialog"
-import { AppLayout } from "@/components/app-layout"
+} from "@workspace/ui/components/alert-dialog";
+import { Button } from "@workspace/ui/components/button";
 import {
-  Package,
-  Users,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@workspace/ui/components/dialog";
+import { Input } from "@workspace/ui/components/input";
+import { Label } from "@workspace/ui/components/label";
+import {
   Activity,
   Calendar,
-  Upload,
-  RotateCcw,
+  Package,
   Settings,
   Trash2,
-} from "lucide-react"
-import { appsApi } from "@/lib/api"
-import type { App, UpdateAppRequest } from "@/lib/api/types"
+  Upload,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function AppDetailPage() {
-  const params = useParams()
-  const router = useRouter()
-  const appId = params.appId as string
-  const [app, setApp] = useState<App | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
+  const params = useParams();
+  const router = useRouter();
+  const appId = params.appId as string;
+  const [app, setApp] = useState<App | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   // 设置对话框状态
-  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false)
-  const [settingsFormData, setSettingsFormData] = useState<UpdateAppRequest & { icon?: string }>({
+  const [isSettingsDialogOpen, setIsSettingsDialogOpen] = useState(false);
+  const [settingsFormData, setSettingsFormData] = useState<
+    UpdateAppRequest & { icon?: string }
+  >({
     name: "",
     icon: "",
-  })
-  const [settingsError, setSettingsError] = useState("")
-  const [isSaving, setIsSaving] = useState(false)
+  });
+  const [settingsError, setSettingsError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
 
   // 删除对话框状态
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
-  const [deleteError, setDeleteError] = useState("")
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   useEffect(() => {
     const fetchApp = async () => {
-      setLoading(true)
-      setError("")
+      setLoading(true);
+      setError("");
 
       try {
-        const response = await appsApi.getApp(appId)
+        const response = await appsApi.getApp(appId);
 
         if (response.success && response.data) {
-          setApp(response.data)
+          setApp(response.data);
         } else {
-          setError(response.error?.message || "获取应用信息失败")
+          setError(response.error?.message || "获取应用信息失败");
         }
       } catch (err) {
-        setError("网络错误，请稍后重试")
+        setError("网络错误，请稍后重试");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
     if (appId) {
-      fetchApp()
+      fetchApp();
     }
-  }, [appId])
+  }, [appId]);
 
   // 处理打开设置对话框
   const openSettingsDialog = () => {
@@ -92,19 +99,19 @@ export default function AppDetailPage() {
       setSettingsFormData({
         name: app.name,
         icon: app.icon || "",
-      })
-      setSettingsError("")
-      setIsSettingsDialogOpen(true)
+      });
+      setSettingsError("");
+      setIsSettingsDialogOpen(true);
     }
-  }
+  };
 
   // 处理保存设置
   const handleSaveSettings = async () => {
-    if (!app) return
+    if (!app) return;
 
     if (!settingsFormData.name || settingsFormData.name.trim().length === 0) {
-      setSettingsError("应用名称不能为空")
-      return
+      setSettingsError("应用名称不能为空");
+      return;
     }
 
     // 验证图标 URL（如果提供）
@@ -112,77 +119,80 @@ export default function AppDetailPage() {
       // 如果输入的是URL，验证格式
       if (settingsFormData.icon.trim().startsWith("http")) {
         try {
-          new URL(settingsFormData.icon.trim())
+          new URL(settingsFormData.icon.trim());
         } catch {
-          setSettingsError("图标 URL 格式不正确")
-          return
+          setSettingsError("图标 URL 格式不正确");
+          return;
         }
       }
     }
 
-    setIsSaving(true)
-    setSettingsError("")
+    setIsSaving(true);
+    setSettingsError("");
 
     try {
       const updateData: UpdateAppRequest & { icon?: string } = {
         name: settingsFormData.name.trim(),
-      }
+      };
 
       // 如果图标有变化，添加到更新数据中
       if (settingsFormData.icon !== undefined) {
-        updateData.icon = settingsFormData.icon.trim() || undefined
+        updateData.icon = settingsFormData.icon.trim() || undefined;
       }
 
-      const response = await appsApi.updateApp(appId, updateData)
+      const response = await appsApi.updateApp(appId, updateData);
 
       if (response.success && response.data) {
-        setIsSettingsDialogOpen(false)
+        setIsSettingsDialogOpen(false);
         // 刷新应用信息
-        const refreshResponse = await appsApi.getApp(appId)
+        const refreshResponse = await appsApi.getApp(appId);
         if (refreshResponse.success && refreshResponse.data) {
-          setApp(refreshResponse.data)
+          setApp(refreshResponse.data);
         }
       } else {
-        setSettingsError(response.error?.message || "更新应用失败")
+        setSettingsError(response.error?.message || "更新应用失败");
       }
     } catch (err) {
-      setSettingsError("更新应用失败，请稍后重试")
-      console.error("更新应用错误:", err)
+      setSettingsError("更新应用失败，请稍后重试");
+      console.error("更新应用错误:", err);
     } finally {
-      setIsSaving(false)
+      setIsSaving(false);
     }
-  }
+  };
 
   // 处理删除应用
   const handleDeleteApp = async () => {
-    if (!app || !appId) return
+    if (!app || !appId) return;
 
-    setIsDeleting(true)
-    setDeleteError("")
+    setIsDeleting(true);
+    setDeleteError("");
 
     try {
-      const response = await appsApi.deleteApp(appId)
+      const response = await appsApi.deleteApp(appId);
 
       if (response.success) {
         // 删除成功，跳转到应用列表页
-        router.push("/apps")
+        router.push("/apps");
       } else {
         // 处理各种错误情况
-        const errorMessage = response.error?.message || "删除应用失败"
-        setDeleteError(errorMessage)
+        const errorMessage = response.error?.message || "删除应用失败";
+        setDeleteError(errorMessage);
 
         // 如果是权限错误，提供更详细的提示
-        if (response.error?.code === "HTTP_403" || response.error?.code?.includes("403")) {
-          setDeleteError("权限不足，无法删除该应用")
+        if (
+          response.error?.code === "HTTP_403" ||
+          response.error?.code?.includes("403")
+        ) {
+          setDeleteError("权限不足，无法删除该应用");
         }
       }
     } catch (err) {
-      setDeleteError("删除应用失败，请稍后重试")
-      console.error("删除应用错误:", err)
+      setDeleteError("删除应用失败，请稍后重试");
+      console.error("删除应用错误:", err);
     } finally {
-      setIsDeleting(false)
+      setIsDeleting(false);
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -191,7 +201,7 @@ export default function AppDetailPage() {
           <p className="text-muted-foreground">加载中...</p>
         </div>
       </AppLayout>
-    )
+    );
   }
 
   if (error || !app) {
@@ -199,9 +209,7 @@ export default function AppDetailPage() {
       <AppLayout>
         <Card className="border-destructive">
           <CardContent className="pt-6">
-            <p className="text-sm text-destructive">
-              {error || "应用不存在"}
-            </p>
+            <p className="text-sm text-destructive">{error || "应用不存在"}</p>
             <Button
               variant="outline"
               className="mt-4"
@@ -212,7 +220,7 @@ export default function AppDetailPage() {
           </CardContent>
         </Card>
       </AppLayout>
-    )
+    );
   }
 
   return (
@@ -327,7 +335,9 @@ export default function AppDetailPage() {
                   <span className="text-sm font-medium">{app.appId}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">创建时间</span>
+                  <span className="text-sm text-muted-foreground">
+                    创建时间
+                  </span>
                   <span className="text-sm font-medium">
                     {new Date(app.createdAt).toLocaleDateString("zh-CN")}
                   </span>
@@ -366,10 +376,6 @@ export default function AppDetailPage() {
                   发布新更新
                 </Button>
               </Link>
-              <Button variant="outline" className="w-full justify-start">
-                <RotateCcw className="mr-2 h-4 w-4" />
-                版本回滚
-              </Button>
               <Link href={`/apps/${appId}/versions`} className="block">
                 <Button variant="outline" className="w-full justify-start">
                   <Package className="mr-2 h-4 w-4" />
@@ -398,14 +404,14 @@ export default function AppDetailPage() {
         <Dialog
           open={isSettingsDialogOpen}
           onOpenChange={(open) => {
-            setIsSettingsDialogOpen(open)
+            setIsSettingsDialogOpen(open);
             if (!open) {
-              setSettingsError("")
+              setSettingsError("");
               if (app) {
                 setSettingsFormData({
                   name: app.name,
                   icon: app.icon || "",
-                })
+                });
               }
             }
           }}
@@ -413,9 +419,7 @@ export default function AppDetailPage() {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>应用设置</DialogTitle>
-              <DialogDescription>
-                修改应用的基本信息
-              </DialogDescription>
+              <DialogDescription>修改应用的基本信息</DialogDescription>
             </DialogHeader>
             {settingsError && (
               <div className="text-sm text-destructive bg-destructive/10 p-2 rounded">
@@ -429,14 +433,15 @@ export default function AppDetailPage() {
                   id="settings-name"
                   value={settingsFormData.name}
                   onChange={(e) =>
-                    setSettingsFormData({ ...settingsFormData, name: e.target.value })
+                    setSettingsFormData({
+                      ...settingsFormData,
+                      name: e.target.value,
+                    })
                   }
                   placeholder="例如：我的移动应用"
                   required
                 />
-                <p className="text-xs text-muted-foreground">
-                  应用的显示名称
-                </p>
+                <p className="text-xs text-muted-foreground">应用的显示名称</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="settings-icon">应用图标</Label>
@@ -445,7 +450,10 @@ export default function AppDetailPage() {
                   type="text"
                   value={settingsFormData.icon || ""}
                   onChange={(e) =>
-                    setSettingsFormData({ ...settingsFormData, icon: e.target.value })
+                    setSettingsFormData({
+                      ...settingsFormData,
+                      icon: e.target.value,
+                    })
                   }
                   placeholder="输入 emoji 或图片 URL，例如：📱 或 https://example.com/icon.png"
                 />
@@ -454,7 +462,9 @@ export default function AppDetailPage() {
                 </p>
                 {settingsFormData.icon && (
                   <div className="mt-2 p-2 border rounded-md bg-muted/50">
-                    <div className="text-sm text-muted-foreground mb-1">预览：</div>
+                    <div className="text-sm text-muted-foreground mb-1">
+                      预览：
+                    </div>
                     <div className="text-4xl">
                       {settingsFormData.icon.trim().startsWith("http") ? (
                         <img
@@ -462,7 +472,7 @@ export default function AppDetailPage() {
                           alt="Icon preview"
                           className="h-12 w-12 object-cover rounded"
                           onError={(e) => {
-                            e.currentTarget.style.display = "none"
+                            e.currentTarget.style.display = "none";
                           }}
                         />
                       ) : (
@@ -494,11 +504,11 @@ export default function AppDetailPage() {
           onOpenChange={(open) => {
             // 如果正在删除，不允许关闭对话框
             if (isDeleting && !open) {
-              return
+              return;
             }
-            setIsDeleteDialogOpen(open)
+            setIsDeleteDialogOpen(open);
             if (!open) {
-              setDeleteError("")
+              setDeleteError("");
             }
           }}
         >
@@ -528,8 +538,7 @@ export default function AppDetailPage() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-
       </div>
     </AppLayout>
-  )
+  );
 }

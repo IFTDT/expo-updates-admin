@@ -3060,9 +3060,37 @@
                                 "type": "string",
                                 "nullable": true
                               },
-                              "currentVersion": {
+                              "platform": {
                                 "type": "string",
                                 "nullable": true
+                              },
+                              "currentVersionId": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "currentVersion": {
+                                "type": "object",
+                                "nullable": true,
+                                "properties": {
+                                  "id": {
+                                    "type": "string"
+                                  },
+                                  "version": {
+                                    "type": "string"
+                                  },
+                                  "build": {
+                                    "type": "string"
+                                  },
+                                  "runtimeVersion": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "id",
+                                  "version",
+                                  "build",
+                                  "runtimeVersion"
+                                ]
                               },
                               "lastUpdateAt": {
                                 "type": "string",
@@ -3204,9 +3232,29 @@
                           "type": "string",
                           "nullable": true
                         },
-                        "currentVersion": {
+                        "currentVersionId": {
                           "type": "string",
                           "nullable": true
+                        },
+                        "currentVersion": {
+                          "type": "object",
+                          "nullable": true,
+                          "properties": {
+                            "id": {
+                              "type": "string"
+                            },
+                            "version": {
+                              "type": "string"
+                            },
+                            "runtimeVersion": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "id",
+                            "version",
+                            "runtimeVersion"
+                          ]
                         },
                         "lastUpdateAt": {
                           "type": "string",

@@ -220,7 +220,12 @@ export default function UserVersionPage() {
                 {user.currentVersion && (
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">当前版本：</span>
-                    <span className="font-medium">{user.currentVersion}</span>
+                    <div className="space-y-0.5">
+                      <span className="font-medium">{user.currentVersion.version}</span>
+                      <div className="text-xs text-muted-foreground">
+                        构建: {user.currentVersion.build} | 运行时: {user.currentVersion.runtimeVersion}
+                      </div>
+                    </div>
                   </div>
                 )}
               </>
@@ -285,11 +290,6 @@ export default function UserVersionPage() {
                               <div className="flex items-center gap-2">
                                 <Package className="h-4 w-4 text-muted-foreground" />
                                 <span className="font-medium">{version.version}</span>
-                                {version.isMandatory && (
-                                  <span className="rounded-full bg-orange-100 px-1.5 py-0.5 text-xs font-medium text-orange-800 dark:bg-orange-900 dark:text-orange-300">
-                                    强制
-                                  </span>
-                                )}
                                 {isSelected && (
                                   <CheckCircle2 className="h-4 w-4 text-primary" />
                                 )}
@@ -369,9 +369,15 @@ export default function UserVersionPage() {
                       <span className="font-medium">{user?.userId || user?.deviceId || "-"}</span>
                     </div>
                     {user?.currentVersion && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">当前版本：</span>
-                        <span className="font-medium">{user.currentVersion}</span>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">当前版本：</span>
+                          <span className="font-medium">{user.currentVersion.version}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>构建: {user.currentVersion.build}</span>
+                          <span>运行时: {user.currentVersion.runtimeVersion}</span>
+                        </div>
                       </div>
                     )}
                   </div>
