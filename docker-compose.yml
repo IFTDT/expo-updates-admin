@@ -1,0 +1,15 @@
+services:
+  admin:
+    container_name: expo-updates-admin
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://localhost:9999}
+    image: expo-updates-admin:latest
+    restart: unless-stopped
+    ports:
+      - "${ADMIN_PORT:-3000}:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
