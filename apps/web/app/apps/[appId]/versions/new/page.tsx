@@ -12,13 +12,6 @@ import { AppLayout } from "@/components/app-layout"
 import { API_CONFIG, versionsApi } from "@/lib/api"
 import { Upload, X, FileUp } from "lucide-react"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@workspace/ui/components/select"
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -72,6 +65,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
     description: "",
     runtimeVersion: "",
     isMandatory: "false",
+    uploadToOss: "true",
     publishTime: "now",
     scheduledDate: "",
     scheduledTime: "",
@@ -234,6 +228,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
           description: formData.description.trim() || undefined,
           runtimeVersion: formData.runtimeVersion.trim(),
           isMandatory: formData.isMandatory === "true",
+          uploadToOss: formData.uploadToOss === "true",
           publishTime: formData.publishTime as "now" | "scheduled",
           scheduledAt,
         }
@@ -248,6 +243,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
           description: formData.description.trim() || undefined,
           runtimeVersion: formData.runtimeVersion.trim() || undefined,
           isMandatory: formData.isMandatory === "true",
+          uploadToOss: formData.uploadToOss === "true",
           fileUrl: resolveFileUrl(formData.fileUrl.trim()),
           fileSize: Number(formData.fileSize),
           checksum: formData.checksum.trim(),
@@ -488,6 +484,87 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
                     Expo Updates 要求的运行时版本，用于匹配兼容的更新包
                   </p>
                 </div>
+
+                {/* <div className="space-y-2">
+                  <Label htmlFor="uploadToOss">是否需要上传到 OSS</Label>
+                  <div id="uploadToOss" className="flex items-center gap-6 rounded-md border p-3">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="uploadToOss"
+                        value="true"
+                        checked={formData.uploadToOss === "true"}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            uploadToOss: e.target.value as "true" | "false",
+                          })
+                        }
+                        disabled={isUploading}
+                      />
+                      需要
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="uploadToOss"
+                        value="false"
+                        checked={formData.uploadToOss === "false"}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            uploadToOss: e.target.value as "true" | "false",
+                          })
+                        }
+                        disabled={isUploading}
+                      />
+                      不需要
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    控制服务端是否将版本文件上传到 OSS，默认 true。
+                  </p>
+                </div> */}
+
+                {/* <div className="space-y-2">
+                  <Label htmlFor="publishTime">发布时间</Label>
+                  <div id="publishTime" className="flex items-center gap-6 rounded-md border p-3">
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="publishTime"
+                        value="now"
+                        checked={formData.publishTime === "now"}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            publishTime: e.target.value as "now" | "scheduled",
+                            scheduledDate: "",
+                            scheduledTime: "",
+                          })
+                        }
+                        disabled={isUploading}
+                      />
+                      立即发布
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="publishTime"
+                        value="scheduled"
+                        checked={formData.publishTime === "scheduled"}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            publishTime: e.target.value as "now" | "scheduled",
+                          })
+                        }
+                        disabled={isUploading}
+                      />
+                      定时发布
+                    </label>
+                  </div>
+                </div> */}
 
                 <div className="space-y-2">
                   <Label htmlFor="name">版本名称 *</Label>

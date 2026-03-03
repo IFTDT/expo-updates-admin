@@ -46,6 +46,7 @@ export const versionsApi = {
       name: data.name,
       runtimeVersion: data.runtimeVersion,
       isMandatory: data.isMandatory ? "true" : "false",
+      uploadToOss: data.uploadToOss === false ? "false" : "true",
       publishTime: data.publishTime ?? "now",
     };
 

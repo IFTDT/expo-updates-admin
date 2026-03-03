@@ -322,6 +322,7 @@ export interface CreateVersionWithFilePayload {
   runtimeVersion: string;
   description?: string;
   isMandatory?: boolean;
+  uploadToOss?: boolean;
   publishTime?: "now" | "scheduled";
   scheduledAt?: string;
 }
@@ -336,6 +337,7 @@ export interface CreateVersionByUrlRequest {
   description?: string;
   runtimeVersion?: string;
   isMandatory?: boolean;
+  uploadToOss?: boolean;
   fileUrl: string;
   fileSize: number;
   checksum: string;
