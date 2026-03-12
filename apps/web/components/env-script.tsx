@@ -6,33 +6,37 @@ import { headers } from "next/headers";
 
 const DEFAULT_API_BASE_URL = "http://localhost:9999";
 
-function normalizeApiBaseUrl(raw: string | undefined): string {
-  if (!raw) return DEFAULT_API_BASE_URL;
-  const trimmed = raw.trim();
-  if (!trimmed) return DEFAULT_API_BASE_URL;
-
-  // 兼容用户传入 //example.com（缺少协议）
-  if (trimmed.startsWith("//")) {
-    return `https:${trimmed}`;
-  }
-
-  return trimmed;
-}
-
 export function EnvScript() {
   // 强制该组件在请求时渲染，避免 build-time 静态化导致拿不到运行时环境变量
   headers();
 
-  const apiBaseUrl = normalizeApiBaseUrl(
-    process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL
-  );
+  const apiBaseUrl =
+    process.env.API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    DEFAULT_API_BASE_URL;
 
   const envJson = JSON.stringify({ apiBaseUrl });
 
   return (
     <script
       dangerouslySetInnerHTML={{
-        __html: `window.__ENV=${envJson};`,
+        __html: [
+          // 先注入一个初始值（如果 HTML 被缓存，这里可能是旧值）
+          `window.__ENV=${envJson};`,
+          // 再从 /api/config 拉取运行时配置覆盖，确保同一镜像多环境时一定正确
+          `(function(){`,
+          `  try {`,
+          `    fetch('/api/config', { cache: 'no-store' })`,
+          `      .then(function(r){ return r.ok ? r.json() : null; })`,
+          `      .then(function(cfg){`,
+          `        if (!cfg || !cfg.apiBaseUrl) return;`,
+          `        window.__ENV = window.__ENV || {};`,
+          `        window.__ENV.apiBaseUrl = cfg.apiBaseUrl;`,
+          `      })`,
+          `      .catch(function(){});`,
+          `  } catch (e) {}`,
+          `})();`,
+        ].join(""),
       }}
     />
   );
