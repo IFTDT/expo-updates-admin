@@ -6,16 +6,14 @@
 
 ## 基础配置
 
-API 基础地址配置在 `config.ts` 中：
+API 基础地址支持**运行时配置**，同一镜像可在多环境（如 K8s）下通过环境变量指定后端地址：
 
-```typescript
-export const API_CONFIG = {
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:9999",
-  timeout: 30000, // 30秒
-};
-```
+- **服务端**：读取 `process.env.API_BASE_URL` 或 `process.env.NEXT_PUBLIC_API_BASE_URL`
+- **浏览器端**：首屏通过 `window.__ENV.apiBaseUrl` 注入（由服务端在 layout 中写入），未注入时回退为 `http://localhost:9999`
 
-可以通过环境变量 `NEXT_PUBLIC_API_BASE_URL` 来配置后端地址。
+配置优先级：`window.__ENV.apiBaseUrl`（浏览器） / `API_BASE_URL`（服务端） > `NEXT_PUBLIC_API_BASE_URL` > 默认 `http://localhost:9999`。
+
+部署时在 K8s Deployment / ConfigMap 等中设置 `API_BASE_URL` 即可，无需为不同环境重新构建镜像。也可通过 `GET /api/config` 获取当前配置。
 
 ## 使用方式
 

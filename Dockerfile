@@ -20,8 +20,7 @@ RUN pnpm install --frozen-lockfile
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ARG NEXT_PUBLIC_API_BASE_URL=
-ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
+# API 地址改为运行时从 window.__ENV / process.env.API_BASE_URL 读取，构建阶段无需传入
 RUN pnpm install --frozen-lockfile && pnpm --filter web build
 
 FROM node:20-slim AS runtime
@@ -31,6 +30,7 @@ ENV HOSTNAME=0.0.0.0
 ENV PORT=3000
 ENV HOME=/home/appuser
 ENV COREPACK_HOME=/home/appuser/.cache/node/corepack
+# 运行时配置：部署时设置 API_BASE_URL 即可指定后端 API 地址（如 K8s ConfigMap/Secret 或 Deployment env）
 
 RUN corepack enable \
   && groupadd -r nodejs \

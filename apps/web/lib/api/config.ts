@@ -1,9 +1,27 @@
 /**
  * API 配置
+ * - 优先使用运行时配置：浏览器端从 window.__ENV.apiBaseUrl 读取（由服务端在首屏注入），服务端从 process.env.API_BASE_URL 读取
+ * - 其次使用构建时环境变量 NEXT_PUBLIC_API_BASE_URL（兼容旧部署方式）
+ * - 默认 http://localhost:9999
  */
+const DEFAULT_API_BASE_URL = "http://localhost:9999";
+
+export function getApiBaseUrl(): string {
+  if (typeof window !== "undefined") {
+    return window.__ENV?.apiBaseUrl ?? DEFAULT_API_BASE_URL;
+  }
+  return (
+    process.env.API_BASE_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    DEFAULT_API_BASE_URL
+  );
+}
+
 export const API_CONFIG = {
-  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:9999",
-  timeout: 30000, // 30秒
+  get baseURL(): string {
+    return getApiBaseUrl();
+  },
+  timeout: 60 * 1000, // 60秒
 } as const;
 
 /**
@@ -59,4 +77,3 @@ export const API_PATHS = {
     progress: (uploadId: string) => `/api/upload/${uploadId}/progress`,
   },
 } as const;
-

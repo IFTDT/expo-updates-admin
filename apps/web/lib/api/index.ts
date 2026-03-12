@@ -4,7 +4,7 @@
 
 // 基础
 export { apiClient } from "./client";
-export { API_CONFIG, API_PATHS } from "./config";
+export { API_CONFIG, API_PATHS, getApiBaseUrl } from "./config";
 export * from "./types";
 
 // API 模块

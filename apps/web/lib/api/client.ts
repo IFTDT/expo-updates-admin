@@ -1,24 +1,27 @@
-import { API_CONFIG } from "./config";
+import { getApiBaseUrl, API_CONFIG } from "./config";
 import type { ApiResponse, ApiErrorResponse } from "./types";
 
 /**
  * API 客户端类
+ * baseURL 在每次请求时从运行时配置读取，支持同一镜像多环境部署。
  */
 class ApiClient {
-  private baseURL: string;
   private timeout: number;
   private accessToken: string | null = null;
   private isRefreshing = false;
   private refreshPromise: Promise<boolean> | null = null;
 
-  constructor(baseURL: string, timeout: number) {
-    this.baseURL = baseURL;
+  constructor(timeout: number) {
     this.timeout = timeout;
 
     // 从 localStorage 恢复 token
     if (typeof window !== "undefined") {
       this.accessToken = localStorage.getItem("accessToken");
     }
+  }
+
+  private get baseURL(): string {
+    return getApiBaseUrl();
   }
 
   /**
@@ -352,6 +355,6 @@ class ApiClient {
   }
 }
 
-// 创建全局 API 客户端实例
-export const apiClient = new ApiClient(API_CONFIG.baseURL, API_CONFIG.timeout);
+// 创建全局 API 客户端实例（baseURL 在每次请求时从 getApiBaseUrl() 解析）
+export const apiClient = new ApiClient(API_CONFIG.timeout);
 
