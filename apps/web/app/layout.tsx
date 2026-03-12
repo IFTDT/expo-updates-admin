@@ -4,6 +4,8 @@ import "@workspace/ui/globals.css"
 import { Providers } from "@/components/providers"
 import { EnvScript } from "@/components/env-script"
 
+export const dynamic = "force-dynamic"
+
 const fontSans = Geist({
   subsets: ["latin"],
   variable: "--font-sans",
