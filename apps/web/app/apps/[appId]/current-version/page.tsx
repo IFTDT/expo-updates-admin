@@ -6,14 +6,7 @@ import { AppLayout } from "@/components/app-layout"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@workspace/ui/components/card"
 import { Button } from "@workspace/ui/components/button"
 import { Input } from "@workspace/ui/components/input"
-import {
-  ArrowLeft,
-  Package,
-  CheckCircle2,
-  Clock,
-  Loader2,
-  Search,
-} from "lucide-react"
+import { ArrowLeft, Package, CheckCircle2, Loader2, Search } from "lucide-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,29 +28,16 @@ const formatFileSize = (bytes: number): string => {
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i]
 }
 
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "published":
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-900 dark:text-green-300">
-          <CheckCircle2 className="h-3 w-3" />
-          已发布
-        </span>
-      )
-    case "draft":
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800 dark:bg-gray-900 dark:text-gray-300">
-          <Clock className="h-3 w-3" />
-          草稿
-        </span>
-      )
-    default:
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800 dark:bg-gray-900 dark:text-gray-300">
-          {status}
-        </span>
-      )
+function isAppCurrentVersion(app: App | null, version: Version): boolean {
+  if (!app) return false
+  if (app.currentVersionId != null && app.currentVersionId !== "") {
+    return app.currentVersionId === version.id
   }
+  return (
+    app.currentVersion != null &&
+    app.currentVersion !== "" &&
+    app.currentVersion === version.version
+  )
 }
 
 export default function AppCurrentVersionPage() {
@@ -98,7 +78,6 @@ export default function AppCurrentVersionPage() {
       const response = await versionsApi.getVersions(appId, {
         page: 1,
         limit: hasSearch ? 100 : 10, // 搜索时获取更多，默认只获取10个
-        status: "published",
         search: hasSearch ? searchQuery.trim() : undefined,
       })
 
@@ -131,9 +110,23 @@ export default function AppCurrentVersionPage() {
     return () => clearTimeout(handler)
   }, [fetchVersions])
 
+  /** 已是当前版本的项不可作为新选择 */
+  useEffect(() => {
+    if (!app || !selectedVersionId) return
+    const v = versions.find((x) => x.id === selectedVersionId)
+    if (v && isAppCurrentVersion(app, v)) {
+      setSelectedVersionId("")
+    }
+  }, [app, versions, selectedVersionId])
+
   const handleSetCurrentVersion = async () => {
     if (!appId || !selectedVersionId) {
       setError("请选择要设置的版本")
+      return
+    }
+    const chosen = versions.find((v) => v.id === selectedVersionId)
+    if (app && chosen && isAppCurrentVersion(app, chosen)) {
+      setError("该版本已是当前应用版本")
       return
     }
 
@@ -191,12 +184,14 @@ export default function AppCurrentVersionPage() {
                   <span className="text-muted-foreground">App ID：</span>
                   <span className="font-medium">{app.appId}</span>
                 </div>
-                {app.currentVersion && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">当前版本：</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">当前应用版本：</span>
+                  {app.currentVersion ? (
                     <span className="font-medium">{app.currentVersion}</span>
-                  </div>
-                )}
+                  ) : (
+                    <span className="text-muted-foreground">未设置</span>
+                  )}
+                </div>
               </>
             )}
           </div>
@@ -216,7 +211,7 @@ export default function AppCurrentVersionPage() {
                 <Package className="h-5 w-5" /> 选择版本
               </CardTitle>
               <CardDescription>
-                从已发布的版本中选择一个作为应用的当前版本
+                在本应用全部版本中选择要作为当前默认的版本
                 {!searchQuery && versions.length > 0 && (
                   <span className="ml-2 text-xs text-muted-foreground">
                     （显示最新 {versions.length} 个版本，输入关键词可搜索全部版本）
@@ -243,29 +238,42 @@ export default function AppCurrentVersionPage() {
                   </div>
                 ) : versions.length === 0 ? (
                   <div className="rounded-md border border-dashed py-12 text-center text-sm text-muted-foreground">
-                    {searchQuery ? "未找到匹配的版本" : "暂无已发布的版本"}
+                    {searchQuery ? "未找到匹配的版本" : "暂无版本"}
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
                     {versions.map((version) => {
                       const isSelected = version.id === selectedVersionId
+                      const isAlreadyCurrent = app
+                        ? isAppCurrentVersion(app, version)
+                        : false
                       return (
                         <div
                           key={version.id}
-                          onClick={() => setSelectedVersionId(version.id)}
-                          className={`cursor-pointer rounded-lg border p-4 transition-colors ${
-                            isSelected
-                              ? "border-primary bg-primary/5"
-                              : "hover:bg-muted/50"
+                          onClick={() => {
+                            if (isAlreadyCurrent) return
+                            setSelectedVersionId(version.id)
+                          }}
+                          className={`rounded-lg border p-4 transition-colors ${
+                            isAlreadyCurrent
+                              ? "cursor-not-allowed border-muted bg-muted/40 opacity-80"
+                              : isSelected
+                                ? "cursor-pointer border-primary bg-primary/5"
+                                : "cursor-pointer hover:bg-muted/50"
                           }`}
                         >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <Package className="h-4 w-4 text-muted-foreground" />
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Package className="h-4 w-4 shrink-0 text-muted-foreground" />
                                 <span className="font-medium">{version.version}</span>
-                                {isSelected && (
-                                  <CheckCircle2 className="h-4 w-4 text-primary" />
+                                {isAlreadyCurrent && (
+                                  <span className="rounded-md border border-muted-foreground/30 bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                                    已是当前版本
+                                  </span>
+                                )}
+                                {!isAlreadyCurrent && isSelected && (
+                                  <CheckCircle2 className="h-4 w-4 shrink-0 text-primary" />
                                 )}
                               </div>
                               <p className="mt-1 text-sm text-muted-foreground">{version.name}</p>
@@ -277,7 +285,6 @@ export default function AppCurrentVersionPage() {
                                 <span>大小：{formatFileSize(version.fileSize)}</span>
                               </div>
                             </div>
-                            {getStatusBadge(version.status)}
                           </div>
                         </div>
                       )
@@ -300,7 +307,6 @@ export default function AppCurrentVersionPage() {
                   <div className="rounded-lg border border-primary bg-primary/5 p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">已选版本详情</h3>
-                      {getStatusBadge(selectedVersion.status)}
                     </div>
                     <div className="grid grid-cols-1 gap-2 text-sm">
                       <div>
@@ -325,10 +331,6 @@ export default function AppCurrentVersionPage() {
                         <span className="text-muted-foreground">文件大小：</span>
                         <span className="font-medium">{formatFileSize(selectedVersion.fileSize)}</span>
                       </div>
-                      <div>
-                        <span className="text-muted-foreground">是否强制：</span>
-                        <span className="font-medium">{selectedVersion.isMandatory ? "是" : "否"}</span>
-                      </div>
                     </div>
                     {selectedVersion.description && (
                       <div className="text-sm">
@@ -338,16 +340,16 @@ export default function AppCurrentVersionPage() {
                     )}
                   </div>
                   <div className="space-y-2 text-sm pt-2 border-t">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">应用名称：</span>
-                      <span className="font-medium">{app?.name ?? "-"}</span>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground shrink-0">应用名称</span>
+                      <span className="font-medium text-right">{app?.name ?? "-"}</span>
                     </div>
-                    {app?.currentVersion && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">当前版本：</span>
-                        <span className="font-medium">{app.currentVersion}</span>
-                      </div>
-                    )}
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground shrink-0">当前应用版本</span>
+                      <span className="font-medium text-right">
+                        {app?.currentVersion ?? "未设置"}
+                      </span>
+                    </div>
                   </div>
                 </>
               ) : (
@@ -358,7 +360,14 @@ export default function AppCurrentVersionPage() {
               <Button
                 className="w-full"
                 onClick={() => setShowConfirmDialog(true)}
-                disabled={!selectedVersionId || isSetting || loading}
+                disabled={
+                  !selectedVersionId ||
+                  isSetting ||
+                  loading ||
+                  (app != null &&
+                    selectedVersion != null &&
+                    isAppCurrentVersion(app, selectedVersion))
+                }
               >
                 设置当前版本
               </Button>

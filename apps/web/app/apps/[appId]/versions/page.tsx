@@ -4,7 +4,6 @@ import { AppLayout } from "@/components/app-layout";
 import { Pagination } from "@/components/pagination";
 import { appsApi, versionsApi } from "@/lib/api";
 import type { App, Version } from "@/lib/api/types";
-import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
   Card,
@@ -27,14 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
-import {
-  Download,
-  Loader2,
-  MoreVertical,
-  Package,
-  Star,
-  Upload,
-} from "lucide-react";
+import { Loader2, MoreVertical, Package, Pin, Star, Upload } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -45,34 +37,6 @@ function formatFileSize(bytes: number): string {
   const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-}
-
-function versionStatusLabel(status: string): string {
-  switch (status) {
-    case "draft":
-      return "草稿";
-    case "published":
-      return "已发布";
-    case "rolled_back":
-      return "已回滚";
-    default:
-      return status;
-  }
-}
-
-function versionStatusBadgeVariant(
-  status: string,
-): "default" | "secondary" | "destructive" | "outline" {
-  switch (status) {
-    case "published":
-      return "default";
-    case "draft":
-      return "secondary";
-    case "rolled_back":
-      return "destructive";
-    default:
-      return "outline";
-  }
 }
 
 /** 是否为应用当前对外版本（优先用 currentVersionId，否则回退比较版本号字符串） */
@@ -107,11 +71,10 @@ export default function VersionsPage() {
   const [limit] = useState(20);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
-  const [statusFilter, setStatusFilter] = useState("all");
   const [actionMessage, setActionMessage] = useState<ActionMessage | null>(
     null,
   );
-  const [downloadingVersionId, setDownloadingVersionId] = useState<
+  const [settingCurrentVersionId, setSettingCurrentVersionId] = useState<
     string | null
   >(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -140,14 +103,6 @@ export default function VersionsPage() {
       const response = await versionsApi.getVersions(appId, {
         page,
         limit,
-        status:
-          statusFilter === "all"
-            ? undefined
-            : (statusFilter as
-                | "draft"
-                | "published"
-                | "rolled_back"
-                | undefined),
       });
 
       if (response.success && response.data) {
@@ -174,54 +129,43 @@ export default function VersionsPage() {
     if (appId) {
       fetchVersions();
     }
-  }, [appId, page, statusFilter]);
+  }, [appId, page]);
 
-  const handleDownload = async (version: Version) => {
-    if (!version.fileUrl) {
-      setActionMessage({
-        type: "error",
-        message: "该版本没有可下载的文件",
-      });
+  const handleSetAsCurrentVersion = async (version: Version) => {
+    if (!appId) return;
+    if (isAppCurrentVersion(app, version)) {
       return;
     }
 
-    setDownloadingVersionId(version.id);
+    setSettingCurrentVersionId(version.id);
     setActionMessage(null);
 
     try {
-      const blob = await versionsApi.downloadVersionFile(version.fileUrl);
-      const urlWithoutQuery = version.fileUrl.split(/[?#]/)[0];
-      const guessedFileName = urlWithoutQuery?.substring(
-        urlWithoutQuery.lastIndexOf("/") + 1,
-      );
-      const sanitizedAppName = (app?.name ?? "app").replace(/\s+/g, "-");
-      const fallbackFileName =
-        guessedFileName && guessedFileName.length > 0
-          ? guessedFileName
-          : `${sanitizedAppName}-${version.version || version.id}.tar.gz`;
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = fallbackFileName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
-
-      setActionMessage({
-        type: "success",
-        message: `已开始下载版本 ${version.version} 的更新包`,
+      const response = await appsApi.setCurrentVersion(appId, {
+        versionId: version.id,
       });
+      if (response.success) {
+        setActionMessage({
+          type: "success",
+          message: `已将当前应用版本设为 ${version.version}`,
+        });
+        await fetchApp();
+      } else {
+        setActionMessage({
+          type: "error",
+          message: response.error?.message || "设置当前版本失败",
+        });
+      }
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "下载失败，请稍后重试";
-      console.error("下载更新包失败:", err);
+        err instanceof Error ? err.message : "设置当前版本失败，请稍后重试";
+      console.error("设置当前版本失败:", err);
       setActionMessage({
         type: "error",
         message,
       });
     } finally {
-      setDownloadingVersionId(null);
+      setSettingCurrentVersionId(null);
     }
   };
 
@@ -287,10 +231,6 @@ export default function VersionsPage() {
     );
   }
 
-  const publishedCount = versions.filter(
-    (v) => v.status === "published",
-  ).length;
-
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -309,7 +249,7 @@ export default function VersionsPage() {
           <Link href={`/apps/${appId}/versions/new`}>
             <Button>
               <Upload className="mr-2 h-4 w-4" />
-              发布新更新
+              新建版本
             </Button>
           </Link>
         </div>
@@ -320,8 +260,25 @@ export default function VersionsPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>版本列表</CardTitle>
-                <CardDescription>
-                  共 {total} 个版本，其中 {publishedCount} 个已发布
+                <CardDescription className="space-y-1">
+                  <span>共 {total} 个版本</span>
+                  <span className="block">
+                    当前应用版本：
+                    {app.currentVersion ? (
+                      <span className="font-medium text-foreground">
+                        {app.currentVersion}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">未设置</span>
+                    )}
+                  </span>
+                  <span className="flex items-center gap-1.5 text-muted-foreground">
+                    <Star
+                      className="h-3.5 w-3.5 shrink-0 fill-primary text-primary"
+                      aria-hidden
+                    />
+                    表示当前应用版本
+                  </span>
                 </CardDescription>
               </div>
             </div>
@@ -357,12 +314,11 @@ export default function VersionsPage() {
                       <TableHead>构建版本</TableHead>
                       <TableHead>运行时版本</TableHead>
                       <TableHead>版本名称</TableHead>
-                      <TableHead>状态</TableHead>
                       <TableHead>描述</TableHead>
                       <TableHead>文件大小</TableHead>
                       <TableHead>用户数</TableHead>
-                      <TableHead>发布时间</TableHead>
-                      <TableHead>发布人</TableHead>
+                      <TableHead>创建时间</TableHead>
+                      <TableHead>上传者</TableHead>
                       <TableHead className="text-right">操作</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -370,7 +326,7 @@ export default function VersionsPage() {
                     {versions.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={12}
+                          colSpan={11}
                           className="text-center py-8 text-muted-foreground"
                         >
                           暂无版本数据
@@ -387,32 +343,25 @@ export default function VersionsPage() {
                           }
                         >
                           <TableCell className="font-medium">
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-2">
                               <Package className="h-4 w-4 shrink-0 text-muted-foreground" />
                               <span>{version.version}</span>
                               {isCurrent && (
-                                <Badge
-                                  variant="outline"
-                                  className="shrink-0 gap-1 border-primary/60 text-primary"
+                                <span
+                                  title="当前应用版本"
+                                  aria-label="当前应用版本"
                                 >
-                                  <Star className="h-3 w-3 fill-primary" />
-                                  当前版本
-                                </Badge>
+                                  <Star
+                                    className="h-4 w-4 shrink-0 fill-primary text-primary"
+                                    aria-hidden
+                                  />
+                                </span>
                               )}
                             </div>
                           </TableCell>
                           <TableCell>{version.build || "-"}</TableCell>
                           <TableCell>{version.runtimeVersion || "-"}</TableCell>
                           <TableCell>{version.name}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={versionStatusBadgeVariant(
-                                version.status,
-                              )}
-                            >
-                              {versionStatusLabel(version.status)}
-                            </Badge>
-                          </TableCell>
                           <TableCell className="max-w-xs truncate">
                             {version.description || "-"}
                           </TableCell>
@@ -423,30 +372,18 @@ export default function VersionsPage() {
                             {version.userCount ?? 0}
                           </TableCell>
                           <TableCell>
-                            {version.publishedAt ? (
-                              <div className="space-y-1">
-                                <div>
-                                  {new Date(
-                                    version.publishedAt,
-                                  ).toLocaleDateString("zh-CN")}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                  {new Date(
-                                    version.publishedAt,
-                                  ).toLocaleTimeString("zh-CN")}
-                                </div>
-                                {version.rolledBackAt && (
-                                  <div className="text-xs text-red-600">
-                                    回滚:{" "}
-                                    {new Date(
-                                      version.rolledBackAt,
-                                    ).toLocaleDateString("zh-CN")}
-                                  </div>
-                                )}
+                            <div className="space-y-1">
+                              <div>
+                                {new Date(
+                                  version.createdAt,
+                                ).toLocaleDateString("zh-CN")}
                               </div>
-                            ) : (
-                              "-"
-                            )}
+                              <div className="text-xs text-muted-foreground">
+                                {new Date(
+                                  version.createdAt,
+                                ).toLocaleTimeString("zh-CN")}
+                              </div>
+                            </div>
                           </TableCell>
                           <TableCell>
                             {version.publisher?.name ||
@@ -462,17 +399,27 @@ export default function VersionsPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem
-                                  onSelect={() => handleDownload(version)}
-                                  disabled={downloadingVersionId === version.id}
+                                  onSelect={() =>
+                                    void handleSetAsCurrentVersion(version)
+                                  }
+                                  disabled={
+                                    isCurrent ||
+                                    settingCurrentVersionId === version.id
+                                  }
+                                  title={
+                                    isCurrent ? "已是当前应用版本" : undefined
+                                  }
                                 >
-                                  {downloadingVersionId === version.id ? (
+                                  {settingCurrentVersionId === version.id ? (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                   ) : (
-                                    <Download className="mr-2 h-4 w-4" />
+                                    <Pin className="mr-2 h-4 w-4" />
                                   )}
-                                  {downloadingVersionId === version.id
-                                    ? "下载中..."
-                                    : "下载更新包"}
+                                  {settingCurrentVersionId === version.id
+                                    ? "设置中..."
+                                    : isCurrent
+                                      ? "已是当前版本"
+                                      : "设为当前应用版本"}
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>

@@ -10,7 +10,6 @@ import {
   ArrowLeft,
   Package,
   CheckCircle2,
-  Clock,
   Loader2,
   Rocket,
   Search,
@@ -42,31 +41,6 @@ const formatDateTime = (value?: string | null) => {
     return new Date(value).toLocaleString("zh-CN", { hour12: false })
   } catch (error) {
     return value
-  }
-}
-
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "published":
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-900 dark:text-green-300">
-          <CheckCircle2 className="h-3 w-3" />
-          已发布
-        </span>
-      )
-    case "draft":
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800 dark:bg-gray-900 dark:text-gray-300">
-          <Clock className="h-3 w-3" />
-          草稿
-        </span>
-      )
-    default:
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800 dark:bg-gray-900 dark:text-gray-300">
-          {status}
-        </span>
-      )
   }
 }
 
@@ -122,7 +96,6 @@ export default function GroupVersionPage() {
       const response = await versionsApi.getVersions(appId, {
         page: 1,
         limit: 20,
-        status: "published",
         search: searchQuery || undefined,
       })
 
@@ -245,7 +218,7 @@ export default function GroupVersionPage() {
                 <Package className="h-5 w-5" /> 选择版本
               </CardTitle>
               <CardDescription>
-                从已发布的版本中选择一个作为分组的目标版本
+                从本应用版本列表中选择一个作为该分组的目标版本
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -267,7 +240,7 @@ export default function GroupVersionPage() {
                   </div>
                 ) : versions.length === 0 ? (
                   <div className="rounded-md border border-dashed py-12 text-center text-sm text-muted-foreground">
-                    {searchQuery ? "未找到匹配的版本" : "暂无已发布的版本"}
+                    {searchQuery ? "未找到匹配的版本" : "暂无版本"}
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -301,7 +274,6 @@ export default function GroupVersionPage() {
                                 <span>大小：{formatFileSize(version.fileSize)}</span>
                               </div>
                             </div>
-                            {getStatusBadge(version.status)}
                           </div>
                         </div>
                       )
@@ -324,7 +296,6 @@ export default function GroupVersionPage() {
                   <div className="rounded-lg border border-primary bg-primary/5 p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">已选版本详情</h3>
-                      {getStatusBadge(selectedVersion.status)}
                     </div>
                     <div className="grid grid-cols-1 gap-2 text-sm">
                       <div>

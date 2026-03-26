@@ -247,7 +247,7 @@ export default function AppDetailPage() {
             <Link href={`/apps/${appId}/versions/new`}>
               <Button>
                 <Upload className="mr-2 h-4 w-4" />
-                发布新更新
+                新建版本
               </Button>
             </Link>
           </div>
@@ -266,7 +266,7 @@ export default function AppDetailPage() {
               </div>
               <div className="flex items-center justify-between mt-2">
                 <p className="text-xs text-muted-foreground">
-                  已发布 {app.versions || 0} 个版本
+                  共 {app.versions || 0} 个版本
                 </p>
                 <Link href={`/apps/${appId}/current-version`}>
                   <Button
@@ -373,7 +373,7 @@ export default function AppDetailPage() {
               <Link href={`/apps/${appId}/versions/new`} className="block">
                 <Button variant="outline" className="w-full justify-start">
                   <Upload className="mr-2 h-4 w-4" />
-                  发布新更新
+                  新建版本
                 </Button>
               </Link>
               <Link href={`/apps/${appId}/versions`} className="block">

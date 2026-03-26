@@ -4,9 +4,10 @@
  * - 其次使用构建时环境变量 NEXT_PUBLIC_API_BASE_URL（兼容旧部署方式）
  * - 默认 http://localhost:9999
  */
-const DEFAULT_API_BASE_URL = "http://10.2.0.68:9999";
+const DEFAULT_API_BASE_URL = "http://10.2.0.68:9998";
 
 export function getApiBaseUrl(): string {
+  return "http://10.2.0.68:9998";
   if (typeof window !== "undefined") {
     return window.__ENV?.apiBaseUrl ?? DEFAULT_API_BASE_URL;
   }

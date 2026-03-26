@@ -183,7 +183,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
             <div>
               <h1 className="text-3xl font-bold tracking-tight">创建新版本</h1>
               <p className="text-muted-foreground mt-1">
-                上传更新包并填写版本信息（创建为草稿，需在列表中发布）
+                上传更新包并填写版本信息
               </p>
             </div>
           </div>
@@ -427,7 +427,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
               <br />
               运行时版本: <strong>{formData.runtimeVersion || "未填写"}</strong>
               <br />
-              创建后为草稿，需在版本列表中单独发布才会推送给用户。
+              创建完成后可在版本列表中管理，并可将某一版本设为应用当前版本。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -10,7 +10,6 @@ import {
   ArrowLeft,
   Package,
   CheckCircle2,
-  Clock,
   Loader2,
   Rocket,
   Search,
@@ -34,31 +33,6 @@ const formatFileSize = (bytes: number): string => {
   const sizes = ["B", "KB", "MB", "GB"]
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i]
-}
-
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case "published":
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800 dark:bg-green-900 dark:text-green-300">
-          <CheckCircle2 className="h-3 w-3" />
-          已发布
-        </span>
-      )
-    case "draft":
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800 dark:bg-gray-900 dark:text-gray-300">
-          <Clock className="h-3 w-3" />
-          草稿
-        </span>
-      )
-    default:
-      return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-800 dark:bg-gray-900 dark:text-gray-300">
-          {status}
-        </span>
-      )
-  }
 }
 
 export default function UserVersionPage() {
@@ -113,7 +87,6 @@ export default function UserVersionPage() {
       const response = await versionsApi.getVersions(appId, {
         page: 1,
         limit: 20,
-        status: "published",
         search: searchQuery || undefined,
       })
 
@@ -247,7 +220,7 @@ export default function UserVersionPage() {
                 <Package className="h-5 w-5" /> 选择版本
               </CardTitle>
               <CardDescription>
-                从已发布的版本中选择一个作为用户的目标版本
+                从本应用版本列表中选择一个作为该用户的目标版本
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -269,7 +242,7 @@ export default function UserVersionPage() {
                   </div>
                 ) : versions.length === 0 ? (
                   <div className="rounded-md border border-dashed py-12 text-center text-sm text-muted-foreground">
-                    {searchQuery ? "未找到匹配的版本" : "暂无已发布的版本"}
+                    {searchQuery ? "未找到匹配的版本" : "暂无版本"}
                   </div>
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
@@ -303,7 +276,6 @@ export default function UserVersionPage() {
                                 <span>大小：{formatFileSize(version.fileSize)}</span>
                               </div>
                             </div>
-                            {getStatusBadge(version.status)}
                           </div>
                         </div>
                       )
@@ -326,7 +298,6 @@ export default function UserVersionPage() {
                   <div className="rounded-lg border border-primary bg-primary/5 p-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">已选版本详情</h3>
-                      {getStatusBadge(selectedVersion.status)}
                     </div>
                     <div className="grid grid-cols-1 gap-2 text-sm">
                       <div>
