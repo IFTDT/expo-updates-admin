@@ -162,7 +162,7 @@ export default function AppUsersPage() {
 
   const fetchApps = async () => {
     try {
-      const response = await appsApi.getApps({ limit: 100 })
+      const response = await appsApi.getApps({ limit: 50 })
       if (response.success && response.data) {
         setApps(response.data.items)
       }
@@ -470,7 +470,6 @@ export default function AppUsersPage() {
                     <SelectItem value="all">所有角色</SelectItem>
                     <SelectItem value="admin">管理员</SelectItem>
                     <SelectItem value="app_manager">应用管理员</SelectItem>
-                    <SelectItem value="viewer">查看者</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -942,7 +941,7 @@ export default function AppUsersPage() {
             )}
             <AlertDialogFooter>
               <AlertDialogCancel>取消</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive text-white hover:bg-destructive/90">
                 删除
               </AlertDialogAction>
             </AlertDialogFooter>

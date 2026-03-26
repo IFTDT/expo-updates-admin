@@ -231,11 +231,11 @@ export function AppSidebar({ className }: SidebarProps) {
                 >
                   <DropdownMenuLabel>我的账户</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem>
+                  {/* <DropdownMenuItem>
                     <Settings className="mr-2 h-4 w-4" />
                     <span>设置</span>
                   </DropdownMenuItem>
-                  <DropdownMenuSeparator />
+                  <DropdownMenuSeparator /> */}
                   <DropdownMenuItem
                     className="text-destructive"
                     onClick={() => logout()}

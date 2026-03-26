@@ -6,6 +6,16 @@ import { appsApi, versionsApi } from "@/lib/api";
 import type { App, Version } from "@/lib/api/types";
 import { Button } from "@workspace/ui/components/button";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@workspace/ui/components/alert-dialog";
+import {
   Card,
   CardContent,
   CardDescription,
@@ -26,7 +36,7 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
-import { Loader2, MoreVertical, Package, Pin, Star, Upload } from "lucide-react";
+import { Loader2, MoreVertical, Package, Pin, Star, Trash2, Upload } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -421,6 +431,23 @@ export default function VersionsPage() {
                                       ? "已是当前版本"
                                       : "设为当前应用版本"}
                                 </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onSelect={() => handleDeleteMenuSelect(version)}
+                                  disabled={
+                                    isCurrent || deletingVersionId === version.id
+                                  }
+                                  className="text-destructive focus:text-destructive"
+                                  title={isCurrent ? "当前应用版本不能删除" : undefined}
+                                >
+                                  {deletingVersionId === version.id ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                  )}
+                                  {deletingVersionId === version.id
+                                    ? "删除中..."
+                                    : "删除版本"}
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -445,6 +472,38 @@ export default function VersionsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <AlertDialog
+        open={showDeleteDialog}
+        onOpenChange={handleDeleteDialogOpenChange}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除版本</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除版本{" "}
+              <strong>{selectedVersionForDelete?.version}</strong> 吗？
+              <br />
+              该操作不可恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingVersionId !== null}>
+              取消
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleDeleteVersion()}
+              disabled={deletingVersionId !== null}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {deletingVersionId !== null && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {deletingVersionId !== null ? "删除中..." : "确认删除"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </AppLayout>
   );
 }
