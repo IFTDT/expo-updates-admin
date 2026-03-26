@@ -73,6 +73,8 @@ export interface App {
   description?: string | null;
   status: string;
   currentVersion?: string | null;
+  /** 应用当前对外版本（与 versions 表 id 对应） */
+  currentVersionId?: string | null;
   userCount: number;
   updateCount: number;
   versions?: number;
@@ -323,8 +325,6 @@ export interface CreateVersionWithFilePayload {
   description?: string;
   isMandatory?: boolean;
   uploadToOss?: boolean;
-  publishTime?: "now" | "scheduled";
-  scheduledAt?: string;
 }
 
 /**
@@ -341,8 +341,6 @@ export interface CreateVersionByUrlRequest {
   fileUrl: string;
   fileSize: number;
   checksum: string;
-  publishTime?: "now" | "scheduled";
-  scheduledAt?: string;
 }
 
 /**

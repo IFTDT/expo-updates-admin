@@ -47,15 +47,10 @@ export const versionsApi = {
       runtimeVersion: data.runtimeVersion,
       isMandatory: data.isMandatory ? "true" : "false",
       uploadToOss: data.uploadToOss === false ? "false" : "true",
-      publishTime: data.publishTime ?? "now",
     };
 
     if (data.description) {
       additionalData.description = data.description;
-    }
-
-    if (data.scheduledAt) {
-      additionalData.scheduledAt = data.scheduledAt;
     }
 
     return apiClient.upload<Version>(API_PATHS.apps.versions(appId), file, additionalData);

@@ -21,7 +21,8 @@ class ApiClient {
   }
 
   private get baseURL(): string {
-    return getApiBaseUrl();
+    return 'http://10.2.0.68:9999'
+    // return getApiBaseUrl();
   }
 
   /**

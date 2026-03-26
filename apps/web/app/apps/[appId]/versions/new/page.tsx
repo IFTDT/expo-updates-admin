@@ -9,7 +9,7 @@ import { Input } from "@workspace/ui/components/input"
 import { Label } from "@workspace/ui/components/label"
 import { Textarea } from "@workspace/ui/components/textarea"
 import { AppLayout } from "@/components/app-layout"
-import { API_CONFIG, versionsApi } from "@/lib/api"
+import { versionsApi } from "@/lib/api"
 import { Upload, X, FileUp } from "lucide-react"
 import {
   AlertDialog,
@@ -21,8 +21,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
-
 interface NewVersionPageProps {
   params: Promise<{ appId: string }>
 }
@@ -35,23 +33,6 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
   const [isUploading, setIsUploading] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [error, setError] = useState("")
-  const [mode, setMode] = useState<"upload" | "byUrl">("upload")
-
-  const resolveFileUrl = (url: string) => {
-    if (!url) {
-      return url
-    }
-
-    if (/^https?:\/\//i.test(url)) {
-      return url
-    }
-
-    const baseURL = API_CONFIG.baseURL.replace(/\/+$/, "")
-    const normalizedPath = url.startsWith("/") ? url : `/${url}`
-
-    console.log(`${baseURL}${normalizedPath}`)
-    return `${baseURL}${normalizedPath}`
-  }
 
   // 初始化 appId
   useEffect(() => {
@@ -66,27 +47,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
     runtimeVersion: "",
     isMandatory: "false",
     uploadToOss: "true",
-    publishTime: "now",
-    scheduledDate: "",
-    scheduledTime: "",
-    fileUrl: "",
-    fileSize: "",
-    checksum: "",
   })
-
-  useEffect(() => {
-    if (mode === "byUrl") {
-      setFile(null)
-      setUploadProgress(0)
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        fileUrl: "",
-        fileSize: "",
-        checksum: "",
-      }))
-    }
-  }, [mode])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0]
@@ -151,40 +112,14 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
       return
     }
 
-    if (
-      formData.publishTime === "scheduled" &&
-      (!formData.scheduledDate || !formData.scheduledTime)
-    ) {
-      setError("请选择定时发布的日期和时间")
+    if (!file) {
+      setError("请上传更新包文件")
       return
     }
 
-    if (mode === "upload") {
-      if (!file) {
-        setError("请上传更新包文件")
-        return
-      }
-
-      if (!formData.runtimeVersion.trim()) {
-        setError("请填写运行时版本 (Runtime Version)")
-        return
-      }
-    } else {
-      if (!formData.fileUrl.trim()) {
-        setError("请填写文件地址")
-        return
-      }
-
-      const parsedSize = Number(formData.fileSize)
-      if (!formData.fileSize.trim() || Number.isNaN(parsedSize) || parsedSize <= 0) {
-        setError("请填写正确的文件大小（字节数）")
-        return
-      }
-
-      if (!formData.checksum.trim()) {
-        setError("请填写文件校验值")
-        return
-      }
+    if (!formData.runtimeVersion.trim()) {
+      setError("请填写运行时版本 (Runtime Version)")
+      return
     }
 
     setShowConfirm(true)
@@ -196,7 +131,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
       return
     }
 
-    if (mode === "upload" && !file) {
+    if (!file) {
       setError("请上传更新包文件")
       return
     }
@@ -207,52 +142,18 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
     setUploadProgress(0)
 
     try {
-      let scheduledAt: string | undefined
-      if (formData.publishTime === "scheduled" && formData.scheduledDate && formData.scheduledTime) {
-        const dateTime = new Date(`${formData.scheduledDate}T${formData.scheduledTime}`)
-        if (Number.isNaN(dateTime.getTime())) {
-          setError("定时发布时间格式不正确")
-          setIsUploading(false)
-          return
-        }
-        scheduledAt = dateTime.toISOString()
+      const createPayload = {
+        version: formData.version.trim(),
+        build: formData.build.trim(),
+        name: formData.name.trim(),
+        description: formData.description.trim() || undefined,
+        runtimeVersion: formData.runtimeVersion.trim(),
+        isMandatory: formData.isMandatory === "true",
+        uploadToOss: formData.uploadToOss === "true",
       }
 
-      let createResponse
-
-      if (mode === "upload" && file) {
-        const createPayload = {
-          version: formData.version.trim(),
-          build: formData.build.trim(),
-          name: formData.name.trim(),
-          description: formData.description.trim() || undefined,
-          runtimeVersion: formData.runtimeVersion.trim(),
-          isMandatory: formData.isMandatory === "true",
-          uploadToOss: formData.uploadToOss === "true",
-          publishTime: formData.publishTime as "now" | "scheduled",
-          scheduledAt,
-        }
-
-        setUploadProgress(25)
-        createResponse = await versionsApi.createVersionWithFile(appId, file, createPayload)
-      } else {
-        const createVersionData = {
-          version: formData.version.trim(),
-          build: formData.build.trim(),
-          name: formData.name.trim(),
-          description: formData.description.trim() || undefined,
-          runtimeVersion: formData.runtimeVersion.trim() || undefined,
-          isMandatory: formData.isMandatory === "true",
-          uploadToOss: formData.uploadToOss === "true",
-          fileUrl: resolveFileUrl(formData.fileUrl.trim()),
-          fileSize: Number(formData.fileSize),
-          checksum: formData.checksum.trim(),
-          publishTime: formData.publishTime as "now" | "scheduled",
-          scheduledAt,
-        }
-
-        createResponse = await versionsApi.createVersionByUrl(appId, createVersionData)
-      }
+      setUploadProgress(25)
+      const createResponse = await versionsApi.createVersionWithFile(appId, file, createPayload)
 
       if (!createResponse.success) {
         setError(createResponse.error?.message || "创建版本失败")
@@ -267,8 +168,8 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
         router.push(`/apps/${appId}/versions`)
       }, 500)
     } catch (err) {
-      setError("发布更新失败，请稍后重试")
-      console.error("发布更新错误:", err)
+      setError("创建版本失败，请稍后重试")
+      console.error("创建版本错误:", err)
       setIsUploading(false)
     }
   }
@@ -280,9 +181,9 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">发布新更新</h1>
+              <h1 className="text-3xl font-bold tracking-tight">创建新版本</h1>
               <p className="text-muted-foreground mt-1">
-                上传更新包并配置版本信息
+                上传更新包并填写版本信息（创建为草稿，需在列表中发布）
               </p>
             </div>
           </div>
@@ -299,17 +200,11 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
             {/* 左侧：文件上传 */}
             <Card>
               <CardHeader>
-                <CardTitle>更新包来源</CardTitle>
-                <CardDescription>选择上传文件或填写文件地址</CardDescription>
+                <CardTitle>更新包</CardTitle>
+                <CardDescription>上传更新包文件</CardDescription>
               </CardHeader>
               <CardContent>
-                <Tabs value={mode} onValueChange={(value) => setMode(value as "upload" | "byUrl")}>
-                  <TabsList>
-                    <TabsTrigger value="upload">上传文件</TabsTrigger>
-                    <TabsTrigger value="byUrl">文件地址</TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="upload" className="mt-4 space-y-4">
+                <div className="space-y-4">
                     {!file ? (
                       <div
                         onDragOver={handleDragOver}
@@ -370,61 +265,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
                         )}
                       </div>
                     )}
-                  </TabsContent>
-
-                  <TabsContent value="byUrl" className="mt-4 space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="fileUrl">文件地址 *</Label>
-                      <Input
-                        id="fileUrl"
-                        placeholder="https://example.com/updates/app-update.tar.gz"
-                        value={formData.fileUrl}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            fileUrl: e.target.value,
-                          })
-                        }
-                        disabled={isUploading}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        支持 HTTP/HTTPS 链接，可填写相对路径
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="fileSize">文件大小 (字节) *</Label>
-                      <Input
-                        id="fileSize"
-                        type="number"
-                        min="1"
-                        placeholder="例如：10485760"
-                        value={formData.fileSize}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            fileSize: e.target.value,
-                          })
-                        }
-                        disabled={isUploading}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="checksum">文件校验值 *</Label>
-                      <Input
-                        id="checksum"
-                        placeholder="请输入文件的校验值（如 SHA256）"
-                        value={formData.checksum}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            checksum: e.target.value,
-                          })
-                        }
-                        disabled={isUploading}
-                      />
-                    </div>
-                  </TabsContent>
-                </Tabs>
+                </div>
               </CardContent>
             </Card>
 
@@ -468,7 +309,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
 
                 <div className="space-y-2">
                   <Label htmlFor="runtimeVersion">
-                    运行时版本 (Runtime Version{mode === "upload" ? " *" : ""})
+                    运行时版本 (Runtime Version) *
                   </Label>
                   <Input
                     id="runtimeVersion"
@@ -477,7 +318,7 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
                     onChange={(e) =>
                       setFormData({ ...formData, runtimeVersion: e.target.value })
                     }
-                    required={mode === "upload"}
+                    required
                     disabled={isUploading}
                   />
                   <p className="text-xs text-muted-foreground">
@@ -526,46 +367,6 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
                   </p>
                 </div> */}
 
-                {/* <div className="space-y-2">
-                  <Label htmlFor="publishTime">发布时间</Label>
-                  <div id="publishTime" className="flex items-center gap-6 rounded-md border p-3">
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="radio"
-                        name="publishTime"
-                        value="now"
-                        checked={formData.publishTime === "now"}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            publishTime: e.target.value as "now" | "scheduled",
-                            scheduledDate: "",
-                            scheduledTime: "",
-                          })
-                        }
-                        disabled={isUploading}
-                      />
-                      立即发布
-                    </label>
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="radio"
-                        name="publishTime"
-                        value="scheduled"
-                        checked={formData.publishTime === "scheduled"}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            publishTime: e.target.value as "now" | "scheduled",
-                          })
-                        }
-                        disabled={isUploading}
-                      />
-                      定时发布
-                    </label>
-                  </div>
-                </div> */}
-
                 <div className="space-y-2">
                   <Label htmlFor="name">版本名称 *</Label>
                   <Input
@@ -595,40 +396,6 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
                 </div>
 
 
-                {formData.publishTime === "scheduled" && (
-                  <div className="grid gap-4 grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="scheduledDate">日期</Label>
-                      <Input
-                        id="scheduledDate"
-                        type="date"
-                        value={formData.scheduledDate}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            scheduledDate: e.target.value,
-                          })
-                        }
-                        disabled={isUploading}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="scheduledTime">时间</Label>
-                      <Input
-                        id="scheduledTime"
-                        type="time"
-                        value={formData.scheduledTime}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            scheduledTime: e.target.value,
-                          })
-                        }
-                        disabled={isUploading}
-                      />
-                    </div>
-                  </div>
-                )}
               </CardContent>
             </Card>
           </div>
@@ -640,9 +407,9 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
                 取消
               </Button>
             </Link>
-            <Button type="submit" disabled={isUploading || (mode === "upload" && !file)}>
+            <Button type="submit" disabled={isUploading || !file}>
               <Upload className="mr-2 h-4 w-4" />
-              {isUploading ? "发布中..." : "发布更新"}
+              {isUploading ? "创建中..." : "创建版本"}
             </Button>
           </div>
         </form>
@@ -652,21 +419,21 @@ export default function NewVersionPage({ params }: NewVersionPageProps) {
       <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>确认发布更新</AlertDialogTitle>
+            <AlertDialogTitle>确认创建版本</AlertDialogTitle>
             <AlertDialogDescription>
-              确定要发布版本 <strong>{formData.version}</strong> 吗？
+              确定要创建版本 <strong>{formData.version}</strong> 吗？
               <br />
               构建版本: <strong>{formData.build || "未填写"}</strong>
               <br />
               运行时版本: <strong>{formData.runtimeVersion || "未填写"}</strong>
               <br />
-              此操作会将更新推送给所有用户。
+              创建后为草稿，需在版本列表中单独发布才会推送给用户。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmPublish}>
-              确认发布
+              确认创建
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

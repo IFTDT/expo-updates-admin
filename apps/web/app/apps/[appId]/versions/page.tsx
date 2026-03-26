@@ -4,6 +4,7 @@ import { AppLayout } from "@/components/app-layout";
 import { Pagination } from "@/components/pagination";
 import { appsApi, versionsApi } from "@/lib/api";
 import type { App, Version } from "@/lib/api/types";
+import { Badge } from "@workspace/ui/components/badge";
 import { Button } from "@workspace/ui/components/button";
 import {
   Card,
@@ -26,7 +27,14 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table";
-import { Download, Loader2, MoreVertical, Package, Upload } from "lucide-react";
+import {
+  Download,
+  Loader2,
+  MoreVertical,
+  Package,
+  Star,
+  Upload,
+} from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -37,6 +45,50 @@ function formatFileSize(bytes: number): string {
   const sizes = ["B", "KB", "MB", "GB"];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
+}
+
+function versionStatusLabel(status: string): string {
+  switch (status) {
+    case "draft":
+      return "草稿";
+    case "published":
+      return "已发布";
+    case "rolled_back":
+      return "已回滚";
+    default:
+      return status;
+  }
+}
+
+function versionStatusBadgeVariant(
+  status: string,
+): "default" | "secondary" | "destructive" | "outline" {
+  switch (status) {
+    case "published":
+      return "default";
+    case "draft":
+      return "secondary";
+    case "rolled_back":
+      return "destructive";
+    default:
+      return "outline";
+  }
+}
+
+/** 是否为应用当前对外版本（优先用 currentVersionId，否则回退比较版本号字符串） */
+function isAppCurrentVersion(
+  app: App | null,
+  version: Version,
+): boolean {
+  if (!app) return false;
+  if (app.currentVersionId != null && app.currentVersionId !== "") {
+    return app.currentVersionId === version.id;
+  }
+  return (
+    app.currentVersion != null &&
+    app.currentVersion !== "" &&
+    app.currentVersion === version.version
+  );
 }
 
 type ActionMessage = {
@@ -305,6 +357,7 @@ export default function VersionsPage() {
                       <TableHead>构建版本</TableHead>
                       <TableHead>运行时版本</TableHead>
                       <TableHead>版本名称</TableHead>
+                      <TableHead>状态</TableHead>
                       <TableHead>描述</TableHead>
                       <TableHead>文件大小</TableHead>
                       <TableHead>用户数</TableHead>
@@ -317,24 +370,49 @@ export default function VersionsPage() {
                     {versions.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={11}
+                          colSpan={12}
                           className="text-center py-8 text-muted-foreground"
                         >
                           暂无版本数据
                         </TableCell>
                       </TableRow>
                     ) : (
-                      versions.map((version) => (
-                        <TableRow key={version.id}>
+                      versions.map((version) => {
+                        const isCurrent = isAppCurrentVersion(app, version);
+                        return (
+                        <TableRow
+                          key={version.id}
+                          className={
+                            isCurrent ? "bg-primary/[0.06] dark:bg-primary/10" : undefined
+                          }
+                        >
                           <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              <Package className="h-4 w-4 text-muted-foreground" />
-                              {version.version}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Package className="h-4 w-4 shrink-0 text-muted-foreground" />
+                              <span>{version.version}</span>
+                              {isCurrent && (
+                                <Badge
+                                  variant="outline"
+                                  className="shrink-0 gap-1 border-primary/60 text-primary"
+                                >
+                                  <Star className="h-3 w-3 fill-primary" />
+                                  当前版本
+                                </Badge>
+                              )}
                             </div>
                           </TableCell>
                           <TableCell>{version.build || "-"}</TableCell>
                           <TableCell>{version.runtimeVersion || "-"}</TableCell>
                           <TableCell>{version.name}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={versionStatusBadgeVariant(
+                                version.status,
+                              )}
+                            >
+                              {versionStatusLabel(version.status)}
+                            </Badge>
+                          </TableCell>
                           <TableCell className="max-w-xs truncate">
                             {version.description || "-"}
                           </TableCell>
@@ -400,7 +478,8 @@ export default function VersionsPage() {
                             </DropdownMenu>
                           </TableCell>
                         </TableRow>
-                      ))
+                        );
+                      })
                     )}
                   </TableBody>
                 </Table>
